@@ -186,10 +186,11 @@ class DataGridController<T> extends ChangeNotifier {
   void resizeRow(
     Object rowKey,
     double delta, {
-    double min = 60,
+    double min = 44,
     double max = 132,
+    double? baseHeight,
   }) {
-    final double current = _rowHeights[rowKey] ?? 72;
+    final double current = _rowHeights[rowKey] ?? baseHeight ?? min;
     _rowHeights[rowKey] = (current + delta).clamp(min, max);
     notifyListeners();
   }

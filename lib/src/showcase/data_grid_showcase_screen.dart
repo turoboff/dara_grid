@@ -18,9 +18,9 @@ class DataGridShowcaseScreen extends StatefulWidget {
 class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
   static const List<int> _pageSizeOptions = <int>[20, 25, 50, 100, 250];
   static const List<int> _rowCountOptions = <int>[140, 300, 1200, 3000];
-  static const List<double> _heightOptions = <double>[420, 520, 720, 900];
   static const String _readonlyStorageKey = 'demo-readonly-grid';
   static const String _editableStorageKey = 'demo-editable-grid';
+  static const double _defaultGridHeight = 520;
 
   final DataGridController<CustomerRecord> _gridController =
       DataGridController<CustomerRecord>(
@@ -39,10 +39,8 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
 
   bool _loading = false;
   bool _pageTransitionLoading = false;
-  bool _serverMode = false;
   bool _editableMode = false;
   bool _multiSort = true;
-  bool _persistSort = true;
   bool _keyboardNavigation = true;
   bool _showTotals = true;
   bool _pagingEnabled = true;
@@ -52,15 +50,15 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
   bool _persistenceEnabled = true;
   int _pagedPageSize = 20;
   int _rowCount = 140;
-  double _gridHeight = 520;
   int _checkboxSelectionMin = 0;
   int _checkboxSelectionMax = 0;
   String _searchQuery = '';
   DataGridThemeMode _themeMode = DataGridThemeMode.light;
   DataGridDensity _density = DataGridDensity.standard;
-  _DemoWrapMode _noteWrapMode = _DemoWrapMode.clamp3;
   Timer? _pageTransitionLoadingTimer;
   int _lastObservedPage = 1;
+
+  String get _activeSearchQuery => _searchQuery.trim();
 
   List<DataGridColumn<CustomerRecord>> get _columns =>
       <DataGridColumn<CustomerRecord>>[
@@ -97,8 +95,11 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
           editable: (_) => true,
           required: true,
           requiredMessage: 'Customer is required',
-          cellBuilder: (_, CustomerRecord record) =>
-              _PrimaryCell(title: record.customer, subtitle: record.company),
+          cellBuilder: (_, CustomerRecord record) => _PrimaryCell(
+            title: record.customer,
+            subtitle: record.company,
+            highlightQuery: _activeSearchQuery,
+          ),
         ),
         DataGridColumn<CustomerRecord>(
           id: 'company',
@@ -112,8 +113,10 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
               ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
           editable: (_) => true,
           required: true,
-          cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(record.company),
+          cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
+            record.company,
+            highlightQuery: _activeSearchQuery,
+          ),
         ),
         DataGridColumn<CustomerRecord>(
           id: 'email',
@@ -127,8 +130,11 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
               ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
           editable: (_) => true,
           required: true,
-          cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(record.email, muted: true),
+          cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
+            record.email,
+            muted: true,
+            highlightQuery: _activeSearchQuery,
+          ),
         ),
         DataGridColumn<CustomerRecord>(
           id: 'phone',
@@ -136,7 +142,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
           width: 146,
           sortValue: (CustomerRecord record) => record.phone,
           cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(record.phone),
+              _PlainTextCell(record.phone, highlightQuery: _activeSearchQuery),
         ),
         DataGridColumn<CustomerRecord>(
           id: 'region',
@@ -144,18 +150,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
           width: 132,
           sortValue: (CustomerRecord record) => record.region,
           cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(record.region),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'plan',
-          label: 'Plan',
-          width: 122,
-          sortValue: (CustomerRecord record) => record.plan.label,
-          cellBuilder: (_, CustomerRecord record) => _TagChipCell(
-            record.plan.label,
-            color: const Color(0xFFDBEAFE),
-            textColor: const Color(0xFF1D4ED8),
-          ),
+              _PlainTextCell(record.region, highlightQuery: _activeSearchQuery),
         ),
         DataGridColumn<CustomerRecord>(
           id: 'status',
@@ -166,17 +161,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
             record.status.label,
             color: _statusColor(record.status),
             textColor: _statusTextColor(record.status),
-          ),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'priority',
-          label: 'Priority',
-          width: 118,
-          sortValue: (CustomerRecord record) => record.priority.label,
-          cellBuilder: (_, CustomerRecord record) => _TagChipCell(
-            record.priority.label,
-            color: _priorityColor(record.priority),
-            textColor: const Color(0xFF9A3412),
+            highlightQuery: _activeSearchQuery,
           ),
         ),
         DataGridColumn<CustomerRecord>(
@@ -241,7 +226,8 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
               ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
           editable: (_) => true,
           required: true,
-          cellBuilder: (_, CustomerRecord record) => _OwnerCell(record.owner),
+          cellBuilder: (_, CustomerRecord record) =>
+              _OwnerCell(record.owner, highlightQuery: _activeSearchQuery),
         ),
         DataGridColumn<CustomerRecord>(
           id: 'createdAt',
@@ -263,7 +249,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
           id: 'notes',
           label: 'Notes',
           width: 260,
-          wrapLines: _noteWrapMode.wrapLines,
+          wrapLines: 3,
           sortValue: (CustomerRecord record) => record.notes,
           editorText: (CustomerRecord record) => record.notes,
           editorTextStyle: (BuildContext context, CustomerRecord record) =>
@@ -272,13 +258,16 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
               ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
           editable: (_) => true,
           saveTrigger: DataGridSaveTrigger.both,
-          cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(record.notes, maxLines: 2),
+          cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
+            record.notes,
+            maxLines: 2,
+            highlightQuery: _activeSearchQuery,
+          ),
         ),
         DataGridColumn<CustomerRecord>(
           id: 'actions',
           label: 'Actions',
-          width: 336,
+          width: 260,
           sortable: false,
           resizable: false,
           hideable: false,
@@ -310,40 +299,6 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
     }
   }
 
-  DataGridColumn<CustomerRecord>? _columnById(String columnId) {
-    for (final DataGridColumn<CustomerRecord> column in _columns) {
-      if (column.id == columnId) {
-        return column;
-      }
-    }
-    return null;
-  }
-
-  int _compareSortValues(
-    Comparable<dynamic>? left,
-    Comparable<dynamic>? right,
-  ) {
-    if (identical(left, right)) {
-      return 0;
-    }
-    if (left == null) {
-      return -1;
-    }
-    if (right == null) {
-      return 1;
-    }
-    if (left is num && right is num) {
-      return left.compareTo(right);
-    }
-    if (left is DateTime && right is DateTime) {
-      return left.compareTo(right);
-    }
-    if (left is String && right is String) {
-      return left.compareTo(right);
-    }
-    return left.compareTo(right);
-  }
-
   List<CustomerRecord> get _filteredRows {
     final String query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) {
@@ -356,9 +311,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
         record.email,
         record.phone,
         record.region,
-        record.plan.label,
         record.status.label,
-        record.priority.label,
         record.owner,
         record.notes,
       ].join(' ').toLowerCase();
@@ -366,46 +319,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
     }).toList();
   }
 
-  List<CustomerRecord> get _serverRows {
-    final List<CustomerRecord> sorted = List<CustomerRecord>.of(_filteredRows);
-    final List<DataGridSortSpec> specs = _gridController.options.sortSpecs;
-    if (specs.isNotEmpty) {
-      sorted.sort((CustomerRecord left, CustomerRecord right) {
-        for (final DataGridSortSpec spec in specs) {
-          final DataGridColumn<CustomerRecord>? column = _columnById(
-            spec.columnId,
-          );
-          if (column == null) {
-            continue;
-          }
-          final int delta = _compareSortValues(
-            column.sortValue?.call(left),
-            column.sortValue?.call(right),
-          );
-          if (delta == 0) {
-            continue;
-          }
-          return spec.direction == DataGridSortDirection.asc ? delta : -delta;
-        }
-        return left.id.compareTo(right.id);
-      });
-    }
-
-    if (!_pagingEnabled) {
-      return sorted;
-    }
-
-    final int start =
-        (_gridController.options.page - 1) * _gridController.options.pageSize;
-    final int end = math.min(
-      start + _gridController.options.pageSize,
-      sorted.length,
-    );
-    return sorted.sublist(start, end);
-  }
-
-  List<CustomerRecord> get _gridRows =>
-      _serverMode ? _serverRows : _filteredRows;
+  List<CustomerRecord> get _gridRows => _filteredRows;
 
   String? get _storageKey => _persistenceEnabled
       ? (_editableMode ? _editableStorageKey : _readonlyStorageKey)
@@ -426,7 +340,6 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       case 'Edit':
         await _openEditModal(record);
       case 'Delete':
-      case 'More':
         _showTransientAction(record, action);
     }
   }
@@ -560,9 +473,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
     if (!_showTotals) {
       return null;
     }
-    final List<CustomerRecord> rows = _serverMode
-        ? _serverRows
-        : _pagingEnabled
+    final List<CustomerRecord> rows = _pagingEnabled
         ? _filteredRows.take(_gridController.options.pageSize).toList()
         : _filteredRows;
     final double balanceTotal = rows.fold<double>(
@@ -687,10 +598,8 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
     setState(() {
       _loading = false;
       _pageTransitionLoading = false;
-      _serverMode = false;
       _editableMode = false;
       _multiSort = true;
-      _persistSort = true;
       _keyboardNavigation = true;
       _showTotals = true;
       _pagingEnabled = true;
@@ -700,13 +609,11 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       _persistenceEnabled = true;
       _pagedPageSize = 20;
       _rowCount = 140;
-      _gridHeight = 520;
       _checkboxSelectionMin = 0;
       _checkboxSelectionMax = 0;
       _searchQuery = '';
       _themeMode = DataGridThemeMode.light;
       _density = DataGridDensity.standard;
-      _noteWrapMode = _DemoWrapMode.clamp3;
       _rows = List<CustomerRecord>.generate(_rowCount, CustomerRecord.sample);
     });
   }
@@ -773,27 +680,6 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                         color: const Color(0xFF516076),
                                       ),
                                     ),
-                                    const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 10,
-                                      runSpacing: 10,
-                                      children: <Widget>[
-                                        _TopStatPill(
-                                          label: 'Rows',
-                                          value: '${_filteredRows.length}',
-                                        ),
-                                        _TopStatPill(
-                                          label: 'Mode',
-                                          value: _editableMode
-                                              ? 'Editable'
-                                              : 'Readonly',
-                                        ),
-                                        _TopStatPill(
-                                          label: 'Theme',
-                                          value: _themeMode.name,
-                                        ),
-                                      ],
-                                    ),
                                   ],
                                 ),
                               ),
@@ -825,12 +711,8 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                             searchQuery: _searchQuery,
                             rowCount: _rowCount,
                             rowCountOptions: _rowCountOptions,
-                            gridHeight: _gridHeight,
-                            heightOptions: _heightOptions,
-                            serverMode: _serverMode,
                             editableMode: _editableMode,
                             multiSort: _multiSort,
-                            persistSort: _persistSort,
                             keyboardNavigation: _keyboardNavigation,
                             loading: _loading,
                             showTotals: _showTotals,
@@ -841,7 +723,6 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                             persistenceEnabled: _persistenceEnabled,
                             checkboxSelectionMin: _checkboxSelectionMin,
                             checkboxSelectionMax: _checkboxSelectionMax,
-                            noteWrapMode: _noteWrapMode,
                             themeMode: _themeMode,
                             density: _density,
                             onSearchChanged: (String value) {
@@ -867,27 +748,6 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                 _syncPagingState();
                               }
                             },
-                            onHeightChanged: (double? value) {
-                              if (value == null) {
-                                return;
-                              }
-                              setState(() {
-                                _gridHeight = value;
-                              });
-                            },
-                            onServerModeChanged: (bool value) {
-                              setState(() {
-                                _serverMode = value;
-                                _lastObservedPage =
-                                    _gridController.options.page;
-                                _pageTransitionLoading = false;
-                                _gridController.setPaginationMode(
-                                  value
-                                      ? DataGridPaginationMode.server
-                                      : DataGridPaginationMode.local,
-                                );
-                              });
-                            },
                             onEditableModeChanged: (bool value) {
                               setState(() {
                                 _editableMode = value;
@@ -896,11 +756,6 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                             onMultiSortChanged: (bool value) {
                               setState(() {
                                 _multiSort = value;
-                              });
-                            },
-                            onPersistSortChanged: (bool value) {
-                              setState(() {
-                                _persistSort = value;
                               });
                             },
                             onKeyboardNavigationChanged: (bool value) {
@@ -958,14 +813,6 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                 _checkboxSelectionMax = math.max(0, value);
                               });
                             },
-                            onNoteWrapModeChanged: (_DemoWrapMode? value) {
-                              if (value == null) {
-                                return;
-                              }
-                              setState(() {
-                                _noteWrapMode = value;
-                              });
-                            },
                             onThemeModeChanged: (DataGridThemeMode? value) {
                               if (value != null) {
                                 setState(() {
@@ -998,42 +845,6 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: <Widget>[
-                                  Text(
-                                    'Customer Operations Grid',
-                                    style: textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF111827),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _editableMode
-                                        ? 'Editable mode mirrors the web grid focus semantics: row clicks redirect into the preferred editor and keyboard commits move focus between inputs.'
-                                        : 'Readonly mode keeps focus on semantic cells while the reusable data-grid module owns navigation, persistence, and selection.',
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      color: const Color(0xFF64748B),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 10,
-                                    runSpacing: 10,
-                                    children: <Widget>[
-                                      _StageStatChip(
-                                        label: 'Visible rows',
-                                        value: '${_gridRows.length}',
-                                      ),
-                                      _StageStatChip(
-                                        label: 'Paging',
-                                        value: _pagingEnabled ? 'On' : 'Off',
-                                      ),
-                                      _StageStatChip(
-                                        label: 'Storage',
-                                        value: _storageKey ?? 'Disabled',
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
                                   Align(
                                     alignment: Alignment.topCenter,
                                     child: SizedBox(
@@ -1063,11 +874,11 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                         totalRowCount: _filteredRows.length,
                                         loading:
                                             _loading || _pageTransitionLoading,
-                                        height: _gridHeight,
+                                        height: _defaultGridHeight,
                                         density: _density,
                                         themeMode: _themeMode,
                                         multiSort: _multiSort,
-                                        persistSort: _persistSort,
+                                        persistSort: true,
                                         showFooter: _pagingEnabled,
                                         showSelectedCount: _showSelectedCount,
                                         summaryValues: _summaryValues,
@@ -1105,29 +916,13 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
   }
 }
 
-enum _DemoWrapMode {
-  off('Off', 1),
-  clamp2('2 lines', 2),
-  clamp3('3 lines', 3),
-  wrap('Wrap', 6);
-
-  const _DemoWrapMode(this.label, this.wrapLines);
-
-  final String label;
-  final int wrapLines;
-}
-
 class _DemoControlPanel extends StatelessWidget {
   const _DemoControlPanel({
     required this.searchQuery,
     required this.rowCount,
     required this.rowCountOptions,
-    required this.gridHeight,
-    required this.heightOptions,
-    required this.serverMode,
     required this.editableMode,
     required this.multiSort,
-    required this.persistSort,
     required this.keyboardNavigation,
     required this.loading,
     required this.showTotals,
@@ -1138,16 +933,12 @@ class _DemoControlPanel extends StatelessWidget {
     required this.persistenceEnabled,
     required this.checkboxSelectionMin,
     required this.checkboxSelectionMax,
-    required this.noteWrapMode,
     required this.themeMode,
     required this.density,
     required this.onSearchChanged,
     required this.onRowCountChanged,
-    required this.onHeightChanged,
-    required this.onServerModeChanged,
     required this.onEditableModeChanged,
     required this.onMultiSortChanged,
-    required this.onPersistSortChanged,
     required this.onKeyboardNavigationChanged,
     required this.onLoadingChanged,
     required this.onShowTotalsChanged,
@@ -1158,7 +949,6 @@ class _DemoControlPanel extends StatelessWidget {
     required this.onPersistenceEnabledChanged,
     required this.onCheckboxSelectionMinChanged,
     required this.onCheckboxSelectionMaxChanged,
-    required this.onNoteWrapModeChanged,
     required this.onThemeModeChanged,
     required this.onDensityChanged,
     required this.onRegeneratePressed,
@@ -1169,12 +959,8 @@ class _DemoControlPanel extends StatelessWidget {
   final String searchQuery;
   final int rowCount;
   final List<int> rowCountOptions;
-  final double gridHeight;
-  final List<double> heightOptions;
-  final bool serverMode;
   final bool editableMode;
   final bool multiSort;
-  final bool persistSort;
   final bool keyboardNavigation;
   final bool loading;
   final bool showTotals;
@@ -1185,16 +971,12 @@ class _DemoControlPanel extends StatelessWidget {
   final bool persistenceEnabled;
   final int checkboxSelectionMin;
   final int checkboxSelectionMax;
-  final _DemoWrapMode noteWrapMode;
   final DataGridThemeMode themeMode;
   final DataGridDensity density;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<int?> onRowCountChanged;
-  final ValueChanged<double?> onHeightChanged;
-  final ValueChanged<bool> onServerModeChanged;
   final ValueChanged<bool> onEditableModeChanged;
   final ValueChanged<bool> onMultiSortChanged;
-  final ValueChanged<bool> onPersistSortChanged;
   final ValueChanged<bool> onKeyboardNavigationChanged;
   final ValueChanged<bool> onLoadingChanged;
   final ValueChanged<bool> onShowTotalsChanged;
@@ -1205,7 +987,6 @@ class _DemoControlPanel extends StatelessWidget {
   final ValueChanged<bool> onPersistenceEnabledChanged;
   final ValueChanged<int> onCheckboxSelectionMinChanged;
   final ValueChanged<int> onCheckboxSelectionMaxChanged;
-  final ValueChanged<_DemoWrapMode?> onNoteWrapModeChanged;
   final ValueChanged<DataGridThemeMode?> onThemeModeChanged;
   final ValueChanged<DataGridDensity?> onDensityChanged;
   final VoidCallback onRegeneratePressed;
@@ -1250,15 +1031,6 @@ class _DemoControlPanel extends StatelessWidget {
                 ),
               ),
               _ControlField(
-                label: 'Height',
-                child: _DropdownField<double>(
-                  value: gridHeight,
-                  items: heightOptions,
-                  itemLabel: (double value) => '${value.round()} px',
-                  onChanged: onHeightChanged,
-                ),
-              ),
-              _ControlField(
                 label: 'Theme',
                 child: _DropdownField<DataGridThemeMode>(
                   value: themeMode,
@@ -1274,15 +1046,6 @@ class _DemoControlPanel extends StatelessWidget {
                   items: DataGridDensity.values,
                   itemLabel: (DataGridDensity value) => value.name,
                   onChanged: onDensityChanged,
-                ),
-              ),
-              _ControlField(
-                label: 'Notes wrap',
-                child: _DropdownField<_DemoWrapMode>(
-                  value: noteWrapMode,
-                  items: _DemoWrapMode.values,
-                  itemLabel: (_DemoWrapMode value) => value.label,
-                  onChanged: onNoteWrapModeChanged,
                 ),
               ),
               _ControlField(
@@ -1324,11 +1087,6 @@ class _DemoControlPanel extends StatelessWidget {
             runSpacing: 12,
             children: <Widget>[
               _ToggleChip(
-                label: 'Server mode',
-                value: serverMode,
-                onChanged: onServerModeChanged,
-              ),
-              _ToggleChip(
                 label: 'Editable mode',
                 value: editableMode,
                 onChanged: onEditableModeChanged,
@@ -1337,11 +1095,6 @@ class _DemoControlPanel extends StatelessWidget {
                 label: 'Multi sort',
                 value: multiSort,
                 onChanged: onMultiSortChanged,
-              ),
-              _ToggleChip(
-                label: 'Persist sort',
-                value: persistSort,
-                onChanged: onPersistSortChanged,
               ),
               _ToggleChip(
                 label: 'Keyboard nav',
@@ -1545,68 +1298,6 @@ class _BufferedTextFieldState extends State<_BufferedTextField> {
   }
 }
 
-class _TopStatPill extends StatelessWidget {
-  const _TopStatPill({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
-      ),
-      child: RichText(
-        text: TextSpan(
-          style: Theme.of(
-            context,
-          ).textTheme.labelLarge?.copyWith(color: const Color(0xFF334155)),
-          children: <InlineSpan>[
-            TextSpan(text: '$label: '),
-            TextSpan(
-              text: value,
-              style: const TextStyle(
-                color: Color(0xFF0F172A),
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StageStatChip extends StatelessWidget {
-  const _StageStatChip({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Text(
-        '$label: $value',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: const Color(0xFF475569),
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
 class _ToggleChip extends StatelessWidget {
   const _ToggleChip({
     required this.label,
@@ -1724,16 +1415,6 @@ class _CustomerViewDialog extends StatelessWidget {
                 background: const Color(0xFFE0F2FE),
                 foreground: const Color(0xFF0C4A6E),
               ),
-              _Badge(
-                label: record.plan.label,
-                background: const Color(0xFFDBEAFE),
-                foreground: const Color(0xFF1D4ED8),
-              ),
-              _Badge(
-                label: record.priority.label,
-                background: const Color(0xFFFFEDD5),
-                foreground: const Color(0xFFC2410C),
-              ),
             ],
           ),
           const SizedBox(height: 22),
@@ -1769,9 +1450,7 @@ class _CustomerViewDialog extends StatelessWidget {
             title: 'Account',
             items: <MapEntry<String, String>>[
               MapEntry<String, String>('Customer ID', '#${record.id}'),
-              MapEntry<String, String>('Plan', record.plan.label),
               MapEntry<String, String>('Status', record.status.label),
-              MapEntry<String, String>('Priority', record.priority.label),
             ],
           ),
           const SizedBox(height: 14),
@@ -1825,9 +1504,7 @@ class _CustomerEditDialogState extends State<_CustomerEditDialog> {
   late final TextEditingController _notesController;
 
   late String _region;
-  late CustomerPlan _plan;
   late RecordStatus _status;
-  late RecordPriority _priority;
   late double _progress;
 
   @override
@@ -1844,9 +1521,7 @@ class _CustomerEditDialogState extends State<_CustomerEditDialog> {
     _ownerController = TextEditingController(text: record.owner);
     _notesController = TextEditingController(text: record.notes);
     _region = record.region;
-    _plan = record.plan;
     _status = record.status;
-    _priority = record.priority;
     _progress = record.progress.toDouble();
   }
 
@@ -1874,9 +1549,7 @@ class _CustomerEditDialogState extends State<_CustomerEditDialog> {
       email: _emailController.text.trim(),
       phone: _phoneController.text.trim(),
       region: _region,
-      plan: _plan,
       status: _status,
-      priority: _priority,
       balance: balance,
       progress: _progress.round(),
       owner: _ownerController.text.trim(),
@@ -2022,28 +1695,6 @@ class _CustomerEditDialogState extends State<_CustomerEditDialog> {
                 ),
                 _SizedInput(
                   width: 250,
-                  child: _FormDropdown<CustomerPlan>(
-                    label: 'Plan',
-                    value: _plan,
-                    items: CustomerPlan.values
-                        .map(
-                          (CustomerPlan plan) => DropdownMenuItem<CustomerPlan>(
-                            value: plan,
-                            child: Text(plan.label),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (CustomerPlan? value) {
-                      if (value != null) {
-                        setState(() {
-                          _plan = value;
-                        });
-                      }
-                    },
-                  ),
-                ),
-                _SizedInput(
-                  width: 250,
                   child: _FormDropdown<RecordStatus>(
                     label: 'Status',
                     value: _status,
@@ -2060,29 +1711,6 @@ class _CustomerEditDialogState extends State<_CustomerEditDialog> {
                       if (value != null) {
                         setState(() {
                           _status = value;
-                        });
-                      }
-                    },
-                  ),
-                ),
-                _SizedInput(
-                  width: 250,
-                  child: _FormDropdown<RecordPriority>(
-                    label: 'Priority',
-                    value: _priority,
-                    items: RecordPriority.values
-                        .map(
-                          (RecordPriority priority) =>
-                              DropdownMenuItem<RecordPriority>(
-                                value: priority,
-                                child: Text(priority.label),
-                              ),
-                        )
-                        .toList(),
-                    onChanged: (RecordPriority? value) {
-                      if (value != null) {
-                        setState(() {
-                          _priority = value;
                         });
                       }
                     },
@@ -2262,12 +1890,6 @@ class _ActionCell extends StatelessWidget {
           icon: Icons.delete_outline_rounded,
           onPressed: () => onAction('Delete'),
         ),
-        _ActionButton(
-          key: Key('row-$recordId-action-more'),
-          label: 'More',
-          icon: Icons.more_horiz_rounded,
-          onPressed: () => onAction('More'),
-        ),
       ],
     );
   }
@@ -2299,11 +1921,17 @@ class _ActionButton extends StatelessWidget {
 }
 
 class _PlainTextCell extends StatelessWidget {
-  const _PlainTextCell(this.text, {this.muted = false, this.maxLines = 1});
+  const _PlainTextCell(
+    this.text, {
+    this.muted = false,
+    this.maxLines = 1,
+    this.highlightQuery,
+  });
 
   final String text;
   final bool muted;
   final int maxLines;
+  final String? highlightQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -2312,16 +1940,26 @@ class _PlainTextCell extends StatelessWidget {
     );
     return Align(
       alignment: Alignment.centerLeft,
-      child: _SelectableCellText(text, maxLines: maxLines, style: style),
+      child: _SelectableCellText(
+        text,
+        maxLines: maxLines,
+        style: style,
+        highlightQuery: highlightQuery,
+      ),
     );
   }
 }
 
 class _PrimaryCell extends StatelessWidget {
-  const _PrimaryCell({required this.title, required this.subtitle});
+  const _PrimaryCell({
+    required this.title,
+    required this.subtitle,
+    this.highlightQuery,
+  });
 
   final String title;
   final String subtitle;
+  final String? highlightQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -2334,9 +1972,19 @@ class _PrimaryCell extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        _SelectableCellText(title, style: titleStyle, maxLines: 1),
+        _SelectableCellText(
+          title,
+          style: titleStyle,
+          maxLines: 1,
+          highlightQuery: highlightQuery,
+        ),
         const SizedBox(height: 2),
-        _SelectableCellText(subtitle, style: subtitleStyle, maxLines: 1),
+        _SelectableCellText(
+          subtitle,
+          style: subtitleStyle,
+          maxLines: 1,
+          highlightQuery: highlightQuery,
+        ),
       ],
     );
   }
@@ -2347,11 +1995,13 @@ class _TagChipCell extends StatelessWidget {
     this.label, {
     required this.color,
     required this.textColor,
+    this.highlightQuery,
   });
 
   final String label;
   final Color color;
   final Color textColor;
+  final String? highlightQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -2363,11 +2013,17 @@ class _TagChipCell extends StatelessWidget {
           color: color,
           borderRadius: BorderRadius.circular(999),
         ),
-        child: Text(
+        child: _SelectableCellText(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
             color: textColor,
             fontWeight: FontWeight.w700,
+          ),
+          highlightQuery: highlightQuery,
+          highlightStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: textColor,
+            fontWeight: FontWeight.w800,
+            backgroundColor: Colors.white.withValues(alpha: 0.5),
           ),
         ),
       ),
@@ -2407,17 +2063,37 @@ class _SelectableCellText extends StatelessWidget {
     this.style,
     this.maxLines = 1,
     this.textAlign = TextAlign.left,
+    this.highlightQuery,
+    this.highlightStyle,
   });
 
   final String text;
   final TextStyle? style;
   final int maxLines;
   final TextAlign textAlign;
+  final String? highlightQuery;
+  final TextStyle? highlightStyle;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
+    return Text.rich(
+      TextSpan(
+        children: _buildHighlightedTextSpans(
+          text: text,
+          baseStyle: style,
+          query: highlightQuery,
+          highlightStyle:
+              highlightStyle ??
+              style?.copyWith(
+                fontWeight: FontWeight.w800,
+                backgroundColor: const Color(0xFFFFF3B0),
+              ) ??
+              const TextStyle(
+                fontWeight: FontWeight.w800,
+                backgroundColor: Color(0xFFFFF3B0),
+              ),
+        ),
+      ),
       maxLines: maxLines,
       overflow: TextOverflow.ellipsis,
       textAlign: textAlign,
@@ -2466,9 +2142,10 @@ class _ProgressCell extends StatelessWidget {
 }
 
 class _OwnerCell extends StatelessWidget {
-  const _OwnerCell(this.owner);
+  const _OwnerCell(this.owner, {this.highlightQuery});
 
   final String owner;
+  final String? highlightQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -2486,10 +2163,52 @@ class _OwnerCell extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(child: _PlainTextCell(owner)),
+        Expanded(child: _PlainTextCell(owner, highlightQuery: highlightQuery)),
       ],
     );
   }
+}
+
+List<InlineSpan> _buildHighlightedTextSpans({
+  required String text,
+  required TextStyle? baseStyle,
+  required String? query,
+  required TextStyle highlightStyle,
+}) {
+  final String trimmedQuery = query?.trim() ?? '';
+  if (trimmedQuery.isEmpty || text.isEmpty) {
+    return <InlineSpan>[TextSpan(text: text, style: baseStyle)];
+  }
+
+  final String lowerText = text.toLowerCase();
+  final String lowerQuery = trimmedQuery.toLowerCase();
+  final List<InlineSpan> spans = <InlineSpan>[];
+  int start = 0;
+
+  while (start < text.length) {
+    final int matchIndex = lowerText.indexOf(lowerQuery, start);
+    if (matchIndex == -1) {
+      spans.add(TextSpan(text: text.substring(start), style: baseStyle));
+      break;
+    }
+
+    if (matchIndex > start) {
+      spans.add(
+        TextSpan(text: text.substring(start, matchIndex), style: baseStyle),
+      );
+    }
+
+    final int matchEnd = matchIndex + trimmedQuery.length;
+    spans.add(
+      TextSpan(
+        text: text.substring(matchIndex, matchEnd),
+        style: highlightStyle,
+      ),
+    );
+    start = matchEnd;
+  }
+
+  return spans;
 }
 
 class _ModalShell extends StatelessWidget {
@@ -2773,9 +2492,7 @@ class CustomerRecord {
     required this.email,
     required this.phone,
     required this.region,
-    required this.plan,
     required this.status,
-    required this.priority,
     required this.balance,
     required this.lastOrder,
     required this.progress,
@@ -2792,9 +2509,7 @@ class CustomerRecord {
   final String email;
   final String phone;
   final String region;
-  final CustomerPlan plan;
   final RecordStatus status;
-  final RecordPriority priority;
   final double balance;
   final DateTime lastOrder;
   final int progress;
@@ -2810,9 +2525,7 @@ class CustomerRecord {
     String? email,
     String? phone,
     String? region,
-    CustomerPlan? plan,
     RecordStatus? status,
-    RecordPriority? priority,
     double? balance,
     DateTime? lastOrder,
     int? progress,
@@ -2829,9 +2542,7 @@ class CustomerRecord {
       email: email ?? this.email,
       phone: phone ?? this.phone,
       region: region ?? this.region,
-      plan: plan ?? this.plan,
       status: status ?? this.status,
-      priority: priority ?? this.priority,
       balance: balance ?? this.balance,
       lastOrder: lastOrder ?? this.lastOrder,
       progress: progress ?? this.progress,
@@ -2900,12 +2611,8 @@ class CustomerRecord {
     final String lastName = lastNames[(index * 3) % lastNames.length];
     final String customer = '$firstName $lastName';
     final String company = companies[index % companies.length];
-    final CustomerPlan plan =
-        CustomerPlan.values[index % CustomerPlan.values.length];
     final RecordStatus status =
         RecordStatus.values[index % RecordStatus.values.length];
-    final RecordPriority priority =
-        RecordPriority.values[index % RecordPriority.values.length];
     final DateTime createdAt = DateTime(
       2025,
       (index % 12) + 1,
@@ -2921,9 +2628,7 @@ class CustomerRecord {
           '${firstName.toLowerCase()}.${lastName.toLowerCase()}@${company.toLowerCase().replaceAll(' ', '')}.com',
       phone: '+1 (555) ${100 + index}-${1200 + index}',
       region: _regions[index % _regions.length],
-      plan: plan,
       status: status,
-      priority: priority,
       balance: 380 + (index * 117.35) % 24000,
       lastOrder: DateTime(2026, ((index + 2) % 12) + 1, ((index * 2) % 28) + 1),
       progress: 28 + ((index * 7) % 73),
@@ -2936,17 +2641,6 @@ class CustomerRecord {
   }
 }
 
-enum CustomerPlan {
-  enterprise('Enterprise'),
-  business('Business'),
-  growth('Growth'),
-  starter('Starter');
-
-  const CustomerPlan(this.label);
-
-  final String label;
-}
-
 enum RecordStatus {
   active('Active'),
   review('Review'),
@@ -2954,17 +2648,6 @@ enum RecordStatus {
   inactive('Inactive');
 
   const RecordStatus(this.label);
-
-  final String label;
-}
-
-enum RecordPriority {
-  critical('Critical'),
-  high('High'),
-  medium('Medium'),
-  low('Low');
-
-  const RecordPriority(this.label);
 
   final String label;
 }
@@ -3047,18 +2730,5 @@ Color _statusTextColor(RecordStatus status) {
       return const Color(0xFF4338CA);
     case RecordStatus.inactive:
       return const Color(0xFF475569);
-  }
-}
-
-Color _priorityColor(RecordPriority priority) {
-  switch (priority) {
-    case RecordPriority.critical:
-      return const Color(0xFFFEE2E2);
-    case RecordPriority.high:
-      return const Color(0xFFFFEDD5);
-    case RecordPriority.medium:
-      return const Color(0xFFFEF3C7);
-    case RecordPriority.low:
-      return const Color(0xFFE2E8F0);
   }
 }

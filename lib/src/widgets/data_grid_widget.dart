@@ -318,15 +318,15 @@ class _DataGridState<T> extends State<DataGrid<T>> {
   }
 
   double get _headerHeight => switch (widget.density) {
-    DataGridDensity.compact => 44,
-    DataGridDensity.standard => 58,
-    DataGridDensity.comfortable => 66,
+    DataGridDensity.compact => 40,
+    DataGridDensity.standard => 48,
+    DataGridDensity.comfortable => 56,
   };
 
   double get _defaultRowHeight => switch (widget.density) {
-    DataGridDensity.compact => 60,
-    DataGridDensity.standard => 72,
-    DataGridDensity.comfortable => 88,
+    DataGridDensity.compact => 44,
+    DataGridDensity.standard => 52,
+    DataGridDensity.comfortable => 60,
   };
 
   List<DataGridColumn<T>> get _orderedVisibleColumns {
@@ -1621,8 +1621,11 @@ class _DataGridState<T> extends State<DataGrid<T>> {
             borderColor: _palette.border,
             isSelected: widget.controller.selectedRowKeys.contains(rowKey),
             enabled: _canSelectRow(row, index),
-            onResize: (double delta) =>
-                widget.controller.resizeRow(rowKey, delta),
+            onResize: (double delta) => widget.controller.resizeRow(
+              rowKey,
+              delta,
+              baseHeight: _defaultRowHeight,
+            ),
             onChanged: (_) => _toggleRowSelection(row, index),
           );
         },
@@ -1744,8 +1747,11 @@ class _DataGridState<T> extends State<DataGrid<T>> {
               _hoveredRowKey = hovered ? rowKey : null;
             });
           },
-          onResize: (double delta) =>
-              widget.controller.resizeRow(rowKey, delta),
+          onResize: (double delta) => widget.controller.resizeRow(
+            rowKey,
+            delta,
+            baseHeight: _defaultRowHeight,
+          ),
           onResizeColumn: (DataGridColumn<T> column, double delta) {
             widget.controller.resizeColumn(
               column.id,
@@ -2290,9 +2296,7 @@ class _DataGridState<T> extends State<DataGrid<T>> {
   }
 }
 
-class _AnimatedRowsList<T> extends StatefulWidget {
-  static const int animationThreshold = 200;
-
+class _AnimatedRowsList<T> extends StatelessWidget {
   const _AnimatedRowsList({
     required this.items,
     required this.areItemsEqual,
@@ -2310,152 +2314,20 @@ class _AnimatedRowsList<T> extends StatefulWidget {
   final ScrollPhysics? physics;
 
   @override
-  State<_AnimatedRowsList<T>> createState() => _AnimatedRowsListState<T>();
-}
-
-class _AnimatedRowsListState<T> extends State<_AnimatedRowsList<T>> {
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
-  late List<T> _visible;
-
-  bool get _shouldAnimate =>
-      widget.items.length <= _AnimatedRowsList.animationThreshold;
-
-  Widget _buildInsertedItem(
-    BuildContext context,
-    T item,
-    int index,
-    Animation<double> animation,
-  ) {
-    final Animation<double> size = CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-    );
-    final Animation<double> fade = CurvedAnimation(
-      parent: animation,
-      curve: const Interval(0.15, 1, curve: Curves.easeOut),
-    );
-    final Animation<Offset> slide = Tween<Offset>(
-      begin: const Offset(0, -0.08),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
-
-    return FadeTransition(
-      opacity: fade,
-      child: SizeTransition(
-        sizeFactor: size,
-        axisAlignment: -1,
-        child: SlideTransition(
-          position: slide,
-          child: widget.itemBuilder(context, item, index),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRemovedItem(
-    BuildContext context,
-    T item,
-    int index,
-    Animation<double> animation,
-  ) {
-    return FadeTransition(
-      opacity: animation,
-      child: SizeTransition(
-        sizeFactor: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-        axisAlignment: -1,
-        child: widget.itemBuilder(context, item, index),
-      ),
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _visible = List<T>.of(widget.items);
-  }
-
-  @override
-  void didUpdateWidget(covariant _AnimatedRowsList<T> oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!_shouldAnimate ||
-        oldWidget.items.length > _AnimatedRowsList.animationThreshold) {
-      _visible = List<T>.of(widget.items);
-      if (mounted) {
-        setState(() {});
-      }
-      return;
-    }
-    _animateDiff(widget.items);
-  }
-
-  void _animateDiff(List<T> newItems) {
-    for (int index = _visible.length - 1; index >= 0; index -= 1) {
-      final T item = _visible[index];
-      final bool stillExists = newItems.any(
-        (T candidate) => widget.areItemsEqual(candidate, item),
-      );
-      if (!stillExists) {
-        final T removed = _visible.removeAt(index);
-        _listKey.currentState?.removeItem(index, (
-          BuildContext context,
-          Animation<double> animation,
-        ) {
-          return _buildRemovedItem(context, removed, index, animation);
-        }, duration: const Duration(milliseconds: 220));
-      }
-    }
-
-    for (int index = 0; index < newItems.length; index += 1) {
-      final T item = newItems[index];
-      final int existingIndex = _visible.indexWhere(
-        (T candidate) => widget.areItemsEqual(candidate, item),
-      );
-      if (existingIndex == -1) {
-        _visible.insert(index, item);
-        _listKey.currentState?.insertItem(
-          index,
-          duration: const Duration(milliseconds: 220),
-        );
-      } else if (existingIndex != index) {
-        _visible.removeAt(existingIndex);
-        _visible.insert(
-          index <= _visible.length ? index : _visible.length,
-          item,
-        );
-      } else {
-        _visible[index] = item;
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (!_shouldAnimate) {
-      return ListView.builder(
-        controller: widget.controller,
-        physics: widget.physics,
-        itemExtentBuilder: widget.itemExtentBuilder,
-        addAutomaticKeepAlives: false,
-        addRepaintBoundaries: true,
-        addSemanticIndexes: false,
-        cacheExtent: 720,
-        itemCount: _visible.length,
-        itemBuilder: (BuildContext context, int index) {
-          final T item = _visible[index];
-          return widget.itemBuilder(context, item, index);
-        },
-      );
-    }
-    return AnimatedList(
-      key: _listKey,
-      controller: widget.controller,
-      physics: widget.physics,
-      initialItemCount: _visible.length,
-      itemBuilder:
-          (BuildContext context, int index, Animation<double> animation) {
-            final T item = _visible[index];
-            return _buildInsertedItem(context, item, index, animation);
-          },
+    return ListView.builder(
+      controller: controller,
+      physics: physics,
+      itemExtentBuilder: itemExtentBuilder,
+      addAutomaticKeepAlives: false,
+      addRepaintBoundaries: true,
+      addSemanticIndexes: false,
+      cacheExtent: 720,
+      itemCount: items.length,
+      itemBuilder: (BuildContext context, int index) {
+        final T item = items[index];
+        return itemBuilder(context, item, index);
+      },
     );
   }
 }

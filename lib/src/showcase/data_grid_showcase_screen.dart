@@ -60,11 +60,6 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
 
   String get _activeSearchQuery => _searchQuery.trim();
 
-  double _resolveGridHeight(double viewportHeight) {
-    const double reservedViewportSpace = 320;
-    return math.max(_defaultGridHeight, viewportHeight - reservedViewportSpace);
-  }
-
   List<DataGridColumn<CustomerRecord>> get _columns =>
       <DataGridColumn<CustomerRecord>>[
         DataGridColumn<CustomerRecord>(
@@ -655,192 +650,181 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
             SafeArea(
               child: LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
-                  final double gridHeight = _resolveGridHeight(
-                    constraints.maxHeight,
+                  final double gridHeight = math.max(
+                    280,
+                    constraints.maxHeight - 360,
                   );
-                  return SingleChildScrollView(
+                  return Padding(
                     padding: const EdgeInsets.all(20),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight - 40,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Text(
-                                      'Flutter Custom Table Demo — Web / Windows / macOS',
-                                      style: textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'A reusable Flutter data-grid module with keyboard navigation, persistence, resizing, selection, and custom action cells.',
-                                      style: textTheme.bodyLarge?.copyWith(
-                                        color: const Color(0xFF516076),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  FilledButton.tonalIcon(
-                                    key: const Key('back-home-button'),
-                                    onPressed: widget.onBack,
-                                    icon: const Icon(Icons.home_rounded),
-                                    label: const Text('Home'),
-                                  ),
-                                  FilledButton.tonalIcon(
-                                    key: const Key('open-pos-demo-button'),
-                                    onPressed: widget.onOpenPosDemo,
-                                    icon: const Icon(
-                                      Icons.point_of_sale_rounded,
+                                  Text(
+                                    'Flutter Custom Table Demo — Web / Windows / macOS',
+                                    style: textTheme.headlineMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF0F172A),
                                     ),
-                                    label: const Text('Open POS Demo'),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 18),
-                          _DemoControlPanel(
-                            searchQuery: _searchQuery,
-                            rowCount: _rowCount,
-                            rowCountOptions: _rowCountOptions,
-                            editableMode: _editableMode,
-                            multiSort: _multiSort,
-                            keyboardNavigation: _keyboardNavigation,
-                            loading: _loading,
-                            showTotals: _showTotals,
-                            pagingEnabled: _pagingEnabled,
-                            showExtraRows: _showExtraRows,
-                            showSelectedCount: _showSelectedCount,
-                            showRowStyle: _showRowStyle,
-                            persistenceEnabled: _persistenceEnabled,
-                            checkboxSelectionMin: _checkboxSelectionMin,
-                            checkboxSelectionMax: _checkboxSelectionMax,
-                            themeMode: _themeMode,
-                            density: _density,
-                            onSearchChanged: (String value) {
-                              setState(() {
-                                _searchQuery = value;
-                              });
-                              if (!_pagingEnabled) {
-                                _syncPagingState();
-                              }
-                            },
-                            onRowCountChanged: (int? value) {
-                              if (value == null) {
-                                return;
-                              }
-                              setState(() {
-                                _rowCount = value;
-                                _rows = List<CustomerRecord>.generate(
-                                  _rowCount,
-                                  CustomerRecord.sample,
-                                );
-                              });
-                              if (!_pagingEnabled) {
-                                _syncPagingState();
-                              }
-                            },
-                            onEditableModeChanged: (bool value) {
-                              setState(() {
-                                _editableMode = value;
-                              });
-                            },
-                            onMultiSortChanged: (bool value) {
-                              setState(() {
-                                _multiSort = value;
-                              });
-                            },
-                            onKeyboardNavigationChanged: (bool value) {
-                              setState(() {
-                                _keyboardNavigation = value;
-                              });
-                            },
-                            onLoadingChanged: (bool value) {
-                              setState(() {
-                                _loading = value;
-                              });
-                            },
-                            onShowTotalsChanged: (bool value) {
-                              setState(() {
-                                _showTotals = value;
-                              });
-                            },
-                            onPagingEnabledChanged: (bool value) {
-                              setState(() {
-                                if (!value) {
-                                  _pagedPageSize =
-                                      _gridController.options.pageSize;
-                                }
-                                _pagingEnabled = value;
-                              });
+                            ),
+                            const SizedBox(width: 16),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: <Widget>[
+                                FilledButton.tonalIcon(
+                                  key: const Key('back-home-button'),
+                                  onPressed: widget.onBack,
+                                  icon: const Icon(Icons.home_rounded),
+                                  label: const Text('Home'),
+                                ),
+                                FilledButton.tonalIcon(
+                                  key: const Key('open-pos-demo-button'),
+                                  onPressed: widget.onOpenPosDemo,
+                                  icon: const Icon(Icons.point_of_sale_rounded),
+                                  label: const Text('Open POS Demo'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        _DemoControlPanel(
+                          searchQuery: _searchQuery,
+                          rowCount: _rowCount,
+                          rowCountOptions: _rowCountOptions,
+                          editableMode: _editableMode,
+                          multiSort: _multiSort,
+                          keyboardNavigation: _keyboardNavigation,
+                          loading: _loading,
+                          showTotals: _showTotals,
+                          pagingEnabled: _pagingEnabled,
+                          showExtraRows: _showExtraRows,
+                          showSelectedCount: _showSelectedCount,
+                          showRowStyle: _showRowStyle,
+                          persistenceEnabled: _persistenceEnabled,
+                          checkboxSelectionMin: _checkboxSelectionMin,
+                          checkboxSelectionMax: _checkboxSelectionMax,
+                          themeMode: _themeMode,
+                          density: _density,
+                          onSearchChanged: (String value) {
+                            setState(() {
+                              _searchQuery = value;
+                            });
+                            if (!_pagingEnabled) {
                               _syncPagingState();
-                            },
-                            onShowExtraRowsChanged: (bool value) {
-                              setState(() {
-                                _showExtraRows = value;
-                              });
-                            },
-                            onShowSelectedCountChanged: (bool value) {
-                              setState(() {
-                                _showSelectedCount = value;
-                              });
-                            },
-                            onShowRowStyleChanged: (bool value) {
-                              setState(() {
-                                _showRowStyle = value;
-                              });
-                            },
-                            onPersistenceEnabledChanged: (bool value) {
-                              setState(() {
-                                _persistenceEnabled = value;
-                              });
-                            },
-                            onCheckboxSelectionMinChanged: (int value) {
-                              setState(() {
-                                _checkboxSelectionMin = math.max(0, value);
-                              });
-                            },
-                            onCheckboxSelectionMaxChanged: (int value) {
-                              setState(() {
-                                _checkboxSelectionMax = math.max(0, value);
-                              });
-                            },
-                            onThemeModeChanged: (DataGridThemeMode? value) {
-                              if (value != null) {
-                                setState(() {
-                                  _themeMode = value;
-                                });
+                            }
+                          },
+                          onRowCountChanged: (int? value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setState(() {
+                              _rowCount = value;
+                              _rows = List<CustomerRecord>.generate(
+                                _rowCount,
+                                CustomerRecord.sample,
+                              );
+                            });
+                            if (!_pagingEnabled) {
+                              _syncPagingState();
+                            }
+                          },
+                          onEditableModeChanged: (bool value) {
+                            setState(() {
+                              _editableMode = value;
+                            });
+                          },
+                          onMultiSortChanged: (bool value) {
+                            setState(() {
+                              _multiSort = value;
+                            });
+                          },
+                          onKeyboardNavigationChanged: (bool value) {
+                            setState(() {
+                              _keyboardNavigation = value;
+                            });
+                          },
+                          onLoadingChanged: (bool value) {
+                            setState(() {
+                              _loading = value;
+                            });
+                          },
+                          onShowTotalsChanged: (bool value) {
+                            setState(() {
+                              _showTotals = value;
+                            });
+                          },
+                          onPagingEnabledChanged: (bool value) {
+                            setState(() {
+                              if (!value) {
+                                _pagedPageSize =
+                                    _gridController.options.pageSize;
                               }
-                            },
-                            onDensityChanged: (DataGridDensity? value) {
-                              if (value != null) {
-                                setState(() {
-                                  _density = value;
-                                });
-                              }
-                            },
-                            onRegeneratePressed: _regenerateRows,
-                            onSimulateLoadingPressed: _simulateLoading,
-                            onResetPressed: _resetDemoState,
-                          ),
-                          const SizedBox(height: 18),
-                          _GlassSurface(
+                              _pagingEnabled = value;
+                            });
+                            _syncPagingState();
+                          },
+                          onShowExtraRowsChanged: (bool value) {
+                            setState(() {
+                              _showExtraRows = value;
+                            });
+                          },
+                          onShowSelectedCountChanged: (bool value) {
+                            setState(() {
+                              _showSelectedCount = value;
+                            });
+                          },
+                          onShowRowStyleChanged: (bool value) {
+                            setState(() {
+                              _showRowStyle = value;
+                            });
+                          },
+                          onPersistenceEnabledChanged: (bool value) {
+                            setState(() {
+                              _persistenceEnabled = value;
+                            });
+                          },
+                          onCheckboxSelectionMinChanged: (int value) {
+                            setState(() {
+                              _checkboxSelectionMin = math.max(0, value);
+                            });
+                          },
+                          onCheckboxSelectionMaxChanged: (int value) {
+                            setState(() {
+                              _checkboxSelectionMax = math.max(0, value);
+                            });
+                          },
+                          onThemeModeChanged: (DataGridThemeMode? value) {
+                            if (value != null) {
+                              setState(() {
+                                _themeMode = value;
+                              });
+                            }
+                          },
+                          onDensityChanged: (DataGridDensity? value) {
+                            if (value != null) {
+                              setState(() {
+                                _density = value;
+                              });
+                            }
+                          },
+                          onRegeneratePressed: _regenerateRows,
+                          onSimulateLoadingPressed: _simulateLoading,
+                          onResetPressed: _resetDemoState,
+                        ),
+                        const SizedBox(height: 18),
+                        Expanded(
+                          child: _GlassSurface(
                             borderRadius: 24,
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(
@@ -849,69 +833,58 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                 16,
                                 10,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Align(
-                                    alignment: Alignment.topCenter,
-                                    child: SizedBox(
-                                      key: const Key('customer-grid-host'),
-                                      width: double.infinity,
-                                      child: DataGrid<CustomerRecord>(
-                                        key: const Key('customer-grid'),
-                                        columns: _columns,
-                                        rows: _gridRows,
-                                        rowKey: (CustomerRecord row) => row.id,
-                                        controller: _gridController,
-                                        persistenceAdapter: _persistenceAdapter,
-                                        storageKey: _storageKey,
-                                        mode: _editableMode
-                                            ? DataGridMode.editable
-                                            : DataGridMode.readonly,
-                                        navigationConfig:
-                                            DataGridNavigationConfig(
-                                              autoFocus: true,
-                                              keyboardNavigation:
-                                                  _keyboardNavigation,
-                                              rowSelectFocusColumnId:
-                                                  'customer',
-                                            ),
-                                        pageSizeOptions: _pageSizeOptions,
-                                        selectionConfig: _selectionConfig,
-                                        totalRowCount: _filteredRows.length,
-                                        loading:
-                                            _loading || _pageTransitionLoading,
-                                        height: gridHeight,
-                                        density: _density,
-                                        themeMode: _themeMode,
-                                        multiSort: _multiSort,
-                                        persistSort: true,
-                                        showFooter: _pagingEnabled,
-                                        showSelectedCount: _showSelectedCount,
-                                        summaryValues: _summaryValues,
-                                        extraTopValues: _extraTopValues,
-                                        extraBottomValues: _extraBottomValues,
-                                        rowColorBuilder: _showRowStyle
-                                            ? (
-                                                CustomerRecord row,
-                                                int rowIndex,
-                                                bool isSelected,
-                                                bool isHovered,
-                                              ) => _baseRowColor(rowIndex, row)
-                                            : null,
-                                        onOptionsChanged:
-                                            _handleGridOptionsChanged,
-                                        onEditCommit: _handleInlineEditCommit,
-                                      ),
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                child: SizedBox(
+                                  key: const Key('customer-grid-host'),
+                                  width: double.infinity,
+                                  child: DataGrid<CustomerRecord>(
+                                    key: const Key('customer-grid'),
+                                    columns: _columns,
+                                    rows: _gridRows,
+                                    rowKey: (CustomerRecord row) => row.id,
+                                    controller: _gridController,
+                                    persistenceAdapter: _persistenceAdapter,
+                                    storageKey: _storageKey,
+                                    mode: _editableMode
+                                        ? DataGridMode.editable
+                                        : DataGridMode.readonly,
+                                    navigationConfig: DataGridNavigationConfig(
+                                      autoFocus: true,
+                                      keyboardNavigation: _keyboardNavigation,
+                                      rowSelectFocusColumnId: 'customer',
                                     ),
+                                    pageSizeOptions: _pageSizeOptions,
+                                    selectionConfig: _selectionConfig,
+                                    totalRowCount: _filteredRows.length,
+                                    loading: _loading || _pageTransitionLoading,
+                                    height: gridHeight,
+                                    density: _density,
+                                    themeMode: _themeMode,
+                                    multiSort: _multiSort,
+                                    persistSort: true,
+                                    showFooter: _pagingEnabled,
+                                    showSelectedCount: _showSelectedCount,
+                                    summaryValues: _summaryValues,
+                                    extraTopValues: _extraTopValues,
+                                    extraBottomValues: _extraBottomValues,
+                                    rowColorBuilder: _showRowStyle
+                                        ? (
+                                            CustomerRecord row,
+                                            int rowIndex,
+                                            bool isSelected,
+                                            bool isHovered,
+                                          ) => _baseRowColor(rowIndex, row)
+                                        : null,
+                                    onOptionsChanged: _handleGridOptionsChanged,
+                                    onEditCommit: _handleInlineEditCommit,
                                   ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   );
                 },

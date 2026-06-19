@@ -667,7 +667,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
                                   Text(
-                                    'Flutter Custom Table Demo — Web / Windows / macOS',
+                                    'CClip React',
                                     style: textTheme.headlineMedium?.copyWith(
                                       fontWeight: FontWeight.w700,
                                       color: const Color(0xFF0F172A),
@@ -822,63 +822,54 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                           onSimulateLoadingPressed: _simulateLoading,
                           onResetPressed: _resetDemoState,
                         ),
-                        const SizedBox(height: 18),
                         Expanded(
                           child: _GlassSurface(
                             borderRadius: 24,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                16,
-                                16,
-                                10,
-                              ),
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: SizedBox(
-                                  key: const Key('customer-grid-host'),
-                                  width: double.infinity,
-                                  child: DataGrid<CustomerRecord>(
-                                    key: const Key('customer-grid'),
-                                    columns: _columns,
-                                    rows: _gridRows,
-                                    rowKey: (CustomerRecord row) => row.id,
-                                    controller: _gridController,
-                                    persistenceAdapter: _persistenceAdapter,
-                                    storageKey: _storageKey,
-                                    mode: _editableMode
-                                        ? DataGridMode.editable
-                                        : DataGridMode.readonly,
-                                    navigationConfig: DataGridNavigationConfig(
-                                      autoFocus: true,
-                                      keyboardNavigation: _keyboardNavigation,
-                                      rowSelectFocusColumnId: 'customer',
-                                    ),
-                                    pageSizeOptions: _pageSizeOptions,
-                                    selectionConfig: _selectionConfig,
-                                    totalRowCount: _filteredRows.length,
-                                    loading: _loading || _pageTransitionLoading,
-                                    height: gridHeight,
-                                    density: _density,
-                                    themeMode: _themeMode,
-                                    multiSort: _multiSort,
-                                    persistSort: true,
-                                    showFooter: _pagingEnabled,
-                                    showSelectedCount: _showSelectedCount,
-                                    summaryValues: _summaryValues,
-                                    extraTopValues: _extraTopValues,
-                                    extraBottomValues: _extraBottomValues,
-                                    rowColorBuilder: _showRowStyle
-                                        ? (
-                                            CustomerRecord row,
-                                            int rowIndex,
-                                            bool isSelected,
-                                            bool isHovered,
-                                          ) => _baseRowColor(rowIndex, row)
-                                        : null,
-                                    onOptionsChanged: _handleGridOptionsChanged,
-                                    onEditCommit: _handleInlineEditCommit,
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              child: SizedBox(
+                                key: const Key('customer-grid-host'),
+                                width: double.infinity,
+                                child: DataGrid<CustomerRecord>(
+                                  key: const Key('customer-grid'),
+                                  columns: _columns,
+                                  rows: _gridRows,
+                                  rowKey: (CustomerRecord row) => row.id,
+                                  controller: _gridController,
+                                  persistenceAdapter: _persistenceAdapter,
+                                  storageKey: _storageKey,
+                                  mode: _editableMode
+                                      ? DataGridMode.editable
+                                      : DataGridMode.readonly,
+                                  navigationConfig: DataGridNavigationConfig(
+                                    autoFocus: true,
+                                    keyboardNavigation: _keyboardNavigation,
+                                    rowSelectFocusColumnId: 'customer',
                                   ),
+                                  pageSizeOptions: _pageSizeOptions,
+                                  selectionConfig: _selectionConfig,
+                                  totalRowCount: _filteredRows.length,
+                                  loading: _loading || _pageTransitionLoading,
+                                  height: gridHeight,
+                                  density: _density,
+                                  themeMode: _themeMode,
+                                  multiSort: _multiSort,
+                                  persistSort: true,
+                                  showFooter: _pagingEnabled,
+                                  showSelectedCount: _showSelectedCount,
+                                  summaryValues: _summaryValues,
+                                  extraTopValues: _extraTopValues,
+                                  extraBottomValues: _extraBottomValues,
+                                  rowColorBuilder: _showRowStyle
+                                      ? (
+                                          CustomerRecord row,
+                                          int rowIndex,
+                                          bool isSelected,
+                                          bool isHovered,
+                                        ) => _baseRowColor(rowIndex, row)
+                                      : null,
+                                  onOptionsChanged: _handleGridOptionsChanged,
+                                  onEditCommit: _handleInlineEditCommit,
                                 ),
                               ),
                             ),

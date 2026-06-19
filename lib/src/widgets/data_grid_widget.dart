@@ -164,9 +164,11 @@ class _DataGridState<T> extends State<DataGrid<T>> {
   final ScrollController _verticalController = ScrollController();
   final ScrollController _fixedVerticalController = ScrollController();
   final FocusNode _gridFocusNode = FocusNode(debugLabel: 'data-grid');
+  final ValueNotifier<Object?> _hoveredRowKeyNotifier = ValueNotifier<Object?>(
+    null,
+  );
   bool _syncingFixedScroll = false;
   bool _hydrated = false;
-  Object? _hoveredRowKey;
   String _lastSortSignature = '';
   int _lastPageSize = 20;
   double _lastViewportWidth = 0;
@@ -179,6 +181,8 @@ class _DataGridState<T> extends State<DataGrid<T>> {
   FocusNode? _editingFocusNode;
   String? _editingErrorText;
   bool _isCommittingEdit = false;
+  bool _isScrollActive = false;
+  Timer? _scrollIdleTimer;
   List<T>? _cachedSortedRows;
   List<T>? _cachedVisibleRows;
   int? _cachedTotalRows;
@@ -198,6 +202,8 @@ class _DataGridState<T> extends State<DataGrid<T>> {
     _lastSortSignature = _sortSignature(widget.controller.options.sortSpecs);
     _lastPageSize = widget.controller.options.pageSize;
     widget.controller.addListener(_onControllerChanged);
+    _horizontalController.addListener(_handleScrollActivity);
+    _verticalController.addListener(_handleScrollActivity);
     _verticalController.addListener(_syncFixedColumnScroll);
     _gridFocusNode.addListener(_handleGridFocusChange);
     unawaited(_hydratePersistence());
@@ -234,12 +240,16 @@ class _DataGridState<T> extends State<DataGrid<T>> {
   @override
   void dispose() {
     widget.controller.removeListener(_onControllerChanged);
+    _horizontalController.removeListener(_handleScrollActivity);
+    _verticalController.removeListener(_handleScrollActivity);
     _verticalController.removeListener(_syncFixedColumnScroll);
     _gridFocusNode.removeListener(_handleGridFocusChange);
+    _scrollIdleTimer?.cancel();
     _horizontalController.dispose();
     _verticalController.dispose();
     _fixedVerticalController.dispose();
     _gridFocusNode.dispose();
+    _hoveredRowKeyNotifier.dispose();
     _disposeEditingState();
     super.dispose();
   }
@@ -391,6 +401,8 @@ class _DataGridState<T> extends State<DataGrid<T>> {
       pageSize: widget.controller.options.pageSize,
     );
   }
+
+  bool get _hasCustomRowHeights => widget.controller.rowHeights.isNotEmpty;
 
   double get _tableWidth => _orderedVisibleColumns.fold<double>(
     0,
@@ -1549,6 +1561,19 @@ class _DataGridState<T> extends State<DataGrid<T>> {
     _syncingFixedScroll = false;
   }
 
+  void _handleScrollActivity() {
+    _scrollIdleTimer?.cancel();
+    if (!_isScrollActive) {
+      _isScrollActive = true;
+      if (_hoveredRowKeyNotifier.value != null) {
+        _hoveredRowKeyNotifier.value = null;
+      }
+    }
+    _scrollIdleTimer = Timer(const Duration(milliseconds: 120), () {
+      _isScrollActive = false;
+    });
+  }
+
   void _jumpTableToTop() {
     if (_verticalController.hasClients) {
       _verticalController.jumpTo(0);
@@ -1580,11 +1605,10 @@ class _DataGridState<T> extends State<DataGrid<T>> {
     }
   }
 
-  Color _resolveRowColor(int index, T row) {
+  Color _resolveRowColorForHover(int index, T row, {required bool isHovered}) {
     final Object key = widget.rowKey(row);
     final bool isFocusedRow = widget.controller.focusedRowKey == key;
     final bool isSelected = widget.controller.selectedRowKeys.contains(key);
-    final bool isHovered = _hoveredRowKey == key;
     final Color base =
         widget.rowColorBuilder?.call(row, index, isSelected, isHovered) ??
         (index.isEven ? _palette.row : _palette.rowAlt);
@@ -1605,28 +1629,40 @@ class _DataGridState<T> extends State<DataGrid<T>> {
         items: _visibleRows,
         areItemsEqual: (T left, T right) =>
             widget.rowKey(left) == widget.rowKey(right),
-        itemExtentBuilder: (int index, SliverLayoutDimensions dimensions) {
-          final T row = _visibleRows[index];
-          return widget.controller.rowHeights[widget.rowKey(row)] ??
-              _defaultRowHeight;
-        },
+        itemExtent: _hasCustomRowHeights ? null : _defaultRowHeight,
+        itemExtentBuilder: _hasCustomRowHeights
+            ? (int index, SliverLayoutDimensions dimensions) {
+                final T row = _visibleRows[index];
+                return widget.controller.rowHeights[widget.rowKey(row)] ??
+                    _defaultRowHeight;
+              }
+            : null,
         physics: const NeverScrollableScrollPhysics(),
         itemBuilder: (BuildContext context, T row, int index) {
           final Object rowKey = widget.rowKey(row);
-          return _PinnedCheckboxRow(
-            rowKey: rowKey,
-            rowHeight:
-                widget.controller.rowHeights[rowKey] ?? _defaultRowHeight,
-            backgroundColor: _resolveRowColor(index, row),
-            borderColor: _palette.border,
-            isSelected: widget.controller.selectedRowKeys.contains(rowKey),
-            enabled: _canSelectRow(row, index),
-            onResize: (double delta) => widget.controller.resizeRow(
-              rowKey,
-              delta,
-              baseHeight: _defaultRowHeight,
-            ),
-            onChanged: (_) => _toggleRowSelection(row, index),
+          return ValueListenableBuilder<Object?>(
+            valueListenable: _hoveredRowKeyNotifier,
+            builder: (BuildContext context, Object? hoveredRowKey, _) {
+              return _PinnedCheckboxRow(
+                rowKey: rowKey,
+                rowHeight:
+                    widget.controller.rowHeights[rowKey] ?? _defaultRowHeight,
+                backgroundColor: _resolveRowColorForHover(
+                  index,
+                  row,
+                  isHovered: hoveredRowKey == rowKey,
+                ),
+                borderColor: _palette.border,
+                isSelected: widget.controller.selectedRowKeys.contains(rowKey),
+                enabled: _canSelectRow(row, index),
+                onResize: (double delta) => widget.controller.resizeRow(
+                  rowKey,
+                  delta,
+                  baseHeight: _defaultRowHeight,
+                ),
+                onChanged: (_) => _toggleRowSelection(row, index),
+              );
+            },
           );
         },
       ),
@@ -1639,125 +1675,143 @@ class _DataGridState<T> extends State<DataGrid<T>> {
       items: _visibleRows,
       areItemsEqual: (T left, T right) =>
           widget.rowKey(left) == widget.rowKey(right),
-      itemExtentBuilder: (int index, SliverLayoutDimensions dimensions) {
-        final T row = _visibleRows[index];
-        return widget.controller.rowHeights[widget.rowKey(row)] ??
-            _defaultRowHeight;
-      },
+      itemExtent: _hasCustomRowHeights ? null : _defaultRowHeight,
+      itemExtentBuilder: _hasCustomRowHeights
+          ? (int index, SliverLayoutDimensions dimensions) {
+              final T row = _visibleRows[index];
+              return widget.controller.rowHeights[widget.rowKey(row)] ??
+                  _defaultRowHeight;
+            }
+          : null,
       itemBuilder: (BuildContext context, T row, int index) {
         final Object rowKey = widget.rowKey(row);
-        return _TableRowWidget<T>(
-          row: row,
-          rowKey: rowKey,
-          visibleRowIndex: index,
-          rowHeight: widget.controller.rowHeights[rowKey] ?? _defaultRowHeight,
-          columns: columns,
-          columnWidths: widget.controller.columnWidths,
-          backgroundColor: _resolveRowColor(index, row),
-          borderColor: _palette.border,
-          focusedRowKey: widget.controller.focusedRowKey,
-          focusedColumnId: widget.controller.focusedColumnId,
-          editingRowKey: _editingRowKey,
-          editingColumnId: _editingColumnId,
-          editingController: _editingTextController,
-          editingFocusNode: _editingFocusNode,
-          editingErrorText: _editingErrorText,
-          isEditableMode: _isEditableMode,
-          onTap: () {
-            widget.onRowTap?.call(row);
-          },
-          onCellTap: (int columnIndex) {
-            unawaited(_handleEditableCellActivation(index, columnIndex));
-          },
-          onDisplayClearTap: (int columnIndex) {
-            _clearCellAndFocusEditor(index, columnIndex);
-          },
-          onEditorSubmitted: () async {
-            await _moveEditorFocusVertical(1);
-          },
-          onEditorTapOutside: _handleEditorTapOutside,
-          onEditorClear: () {
-            _editingTextController?.clear();
-            widget.onEditClear?.call();
-          },
-          onEditorKeyEvent: (KeyEvent keyEvent) {
-            if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) {
-              return KeyEventResult.ignored;
-            }
-            if (keyEvent.logicalKey == LogicalKeyboardKey.escape) {
-              _cancelEditing();
-              return KeyEventResult.handled;
-            }
-            if (keyEvent.logicalKey == LogicalKeyboardKey.enter) {
-              unawaited(_moveEditorFocusVertical(1));
-              return KeyEventResult.handled;
-            }
-            if (keyEvent.logicalKey == LogicalKeyboardKey.tab) {
-              final bool reverse =
-                  HardwareKeyboard.instance.logicalKeysPressed.contains(
-                    LogicalKeyboardKey.shiftLeft,
-                  ) ||
-                  HardwareKeyboard.instance.logicalKeysPressed.contains(
-                    LogicalKeyboardKey.shiftRight,
-                  );
-              unawaited(_moveEditorFocusTab(forward: !reverse));
-              return KeyEventResult.handled;
-            }
-            if (keyEvent.logicalKey == LogicalKeyboardKey.arrowUp) {
-              unawaited(_moveEditorFocusVertical(-1));
-              return KeyEventResult.handled;
-            }
-            if (keyEvent.logicalKey == LogicalKeyboardKey.arrowDown) {
-              unawaited(_moveEditorFocusVertical(1));
-              return KeyEventResult.handled;
-            }
-            if (keyEvent.logicalKey == LogicalKeyboardKey.arrowLeft) {
-              final TextSelection selection =
-                  _editingTextController?.selection ??
-                  const TextSelection.collapsed(offset: -1);
-              if (selection.isCollapsed && selection.start <= 0) {
-                unawaited(_moveEditorFocusTab(forward: false));
-                return KeyEventResult.handled;
-              }
-            }
-            if (keyEvent.logicalKey == LogicalKeyboardKey.arrowRight) {
-              final TextSelection selection =
-                  _editingTextController?.selection ??
-                  const TextSelection.collapsed(offset: -1);
-              final int textLength = _editingTextController?.text.length ?? 0;
-              if (selection.isCollapsed && selection.end >= textLength) {
-                unawaited(_moveEditorFocusTab(forward: true));
-                return KeyEventResult.handled;
-              }
-            }
-            if (keyEvent.logicalKey == LogicalKeyboardKey.pageUp) {
-              unawaited(_commitEditing(restoreCurrentEditor: true));
-              _movePageBy(-1);
-              return KeyEventResult.handled;
-            }
-            if (keyEvent.logicalKey == LogicalKeyboardKey.pageDown) {
-              unawaited(_commitEditing(restoreCurrentEditor: true));
-              _movePageBy(1);
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          onHoverChanged: (bool hovered) {
-            setState(() {
-              _hoveredRowKey = hovered ? rowKey : null;
-            });
-          },
-          onResize: (double delta) => widget.controller.resizeRow(
-            rowKey,
-            delta,
-            baseHeight: _defaultRowHeight,
-          ),
-          onResizeColumn: (DataGridColumn<T> column, double delta) {
-            widget.controller.resizeColumn(
-              column.id,
-              delta,
-              column.minWidth,
-              column.maxWidth,
+        return ValueListenableBuilder<Object?>(
+          valueListenable: _hoveredRowKeyNotifier,
+          builder: (BuildContext context, Object? hoveredRowKey, _) {
+            return _TableRowWidget<T>(
+              row: row,
+              rowKey: rowKey,
+              visibleRowIndex: index,
+              rowHeight:
+                  widget.controller.rowHeights[rowKey] ?? _defaultRowHeight,
+              columns: columns,
+              columnWidths: widget.controller.columnWidths,
+              backgroundColor: _resolveRowColorForHover(
+                index,
+                row,
+                isHovered: hoveredRowKey == rowKey,
+              ),
+              borderColor: _palette.border,
+              focusedRowKey: widget.controller.focusedRowKey,
+              focusedColumnId: widget.controller.focusedColumnId,
+              editingRowKey: _editingRowKey,
+              editingColumnId: _editingColumnId,
+              editingController: _editingTextController,
+              editingFocusNode: _editingFocusNode,
+              editingErrorText: _editingErrorText,
+              isEditableMode: _isEditableMode,
+              onTap: () {
+                widget.onRowTap?.call(row);
+              },
+              onCellTap: (int columnIndex) {
+                unawaited(_handleEditableCellActivation(index, columnIndex));
+              },
+              onDisplayClearTap: (int columnIndex) {
+                _clearCellAndFocusEditor(index, columnIndex);
+              },
+              onEditorSubmitted: () async {
+                await _moveEditorFocusVertical(1);
+              },
+              onEditorTapOutside: _handleEditorTapOutside,
+              onEditorClear: () {
+                _editingTextController?.clear();
+                widget.onEditClear?.call();
+              },
+              onEditorKeyEvent: (KeyEvent keyEvent) {
+                if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) {
+                  return KeyEventResult.ignored;
+                }
+                if (keyEvent.logicalKey == LogicalKeyboardKey.escape) {
+                  _cancelEditing();
+                  return KeyEventResult.handled;
+                }
+                if (keyEvent.logicalKey == LogicalKeyboardKey.enter) {
+                  unawaited(_moveEditorFocusVertical(1));
+                  return KeyEventResult.handled;
+                }
+                if (keyEvent.logicalKey == LogicalKeyboardKey.tab) {
+                  final bool reverse =
+                      HardwareKeyboard.instance.logicalKeysPressed.contains(
+                        LogicalKeyboardKey.shiftLeft,
+                      ) ||
+                      HardwareKeyboard.instance.logicalKeysPressed.contains(
+                        LogicalKeyboardKey.shiftRight,
+                      );
+                  unawaited(_moveEditorFocusTab(forward: !reverse));
+                  return KeyEventResult.handled;
+                }
+                if (keyEvent.logicalKey == LogicalKeyboardKey.arrowUp) {
+                  unawaited(_moveEditorFocusVertical(-1));
+                  return KeyEventResult.handled;
+                }
+                if (keyEvent.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  unawaited(_moveEditorFocusVertical(1));
+                  return KeyEventResult.handled;
+                }
+                if (keyEvent.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                  final TextSelection selection =
+                      _editingTextController?.selection ??
+                      const TextSelection.collapsed(offset: -1);
+                  if (selection.isCollapsed && selection.start <= 0) {
+                    unawaited(_moveEditorFocusTab(forward: false));
+                    return KeyEventResult.handled;
+                  }
+                }
+                if (keyEvent.logicalKey == LogicalKeyboardKey.arrowRight) {
+                  final TextSelection selection =
+                      _editingTextController?.selection ??
+                      const TextSelection.collapsed(offset: -1);
+                  final int textLength =
+                      _editingTextController?.text.length ?? 0;
+                  if (selection.isCollapsed && selection.end >= textLength) {
+                    unawaited(_moveEditorFocusTab(forward: true));
+                    return KeyEventResult.handled;
+                  }
+                }
+                if (keyEvent.logicalKey == LogicalKeyboardKey.pageUp) {
+                  unawaited(_commitEditing(restoreCurrentEditor: true));
+                  _movePageBy(-1);
+                  return KeyEventResult.handled;
+                }
+                if (keyEvent.logicalKey == LogicalKeyboardKey.pageDown) {
+                  unawaited(_commitEditing(restoreCurrentEditor: true));
+                  _movePageBy(1);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              onHoverChanged: (bool hovered) {
+                if (_isScrollActive) {
+                  return;
+                }
+                final Object? nextHoveredRowKey = hovered ? rowKey : null;
+                if (_hoveredRowKeyNotifier.value != nextHoveredRowKey) {
+                  _hoveredRowKeyNotifier.value = nextHoveredRowKey;
+                }
+              },
+              onResize: (double delta) => widget.controller.resizeRow(
+                rowKey,
+                delta,
+                baseHeight: _defaultRowHeight,
+              ),
+              onResizeColumn: (DataGridColumn<T> column, double delta) {
+                widget.controller.resizeColumn(
+                  column.id,
+                  delta,
+                  column.minWidth,
+                  column.maxWidth,
+                );
+              },
             );
           },
         );
@@ -2301,6 +2355,7 @@ class _AnimatedRowsList<T> extends StatelessWidget {
     required this.items,
     required this.areItemsEqual,
     required this.itemBuilder,
+    this.itemExtent,
     this.itemExtentBuilder,
     this.controller,
     this.physics,
@@ -2309,6 +2364,7 @@ class _AnimatedRowsList<T> extends StatelessWidget {
   final List<T> items;
   final bool Function(T left, T right) areItemsEqual;
   final Widget Function(BuildContext context, T item, int index) itemBuilder;
+  final double? itemExtent;
   final ItemExtentBuilder? itemExtentBuilder;
   final ScrollController? controller;
   final ScrollPhysics? physics;
@@ -2318,6 +2374,7 @@ class _AnimatedRowsList<T> extends StatelessWidget {
     return ListView.builder(
       controller: controller,
       physics: physics,
+      itemExtent: itemExtent,
       itemExtentBuilder: itemExtentBuilder,
       addAutomaticKeepAlives: false,
       addRepaintBoundaries: true,

@@ -29,7 +29,7 @@ class DataGrid<T> extends StatefulWidget {
     this.selectionConfig,
     this.mode = DataGridMode.readonly,
     this.navigationConfig = const DataGridNavigationConfig(),
-    this.density = DataGridDensity.standard,
+    this.density = DataGridDensity.compact,
     this.themeMode = DataGridThemeMode.system,
     this.multiSort = true,
     this.persistSort = false,

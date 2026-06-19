@@ -54,11 +54,16 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
   int _checkboxSelectionMax = 0;
   String _searchQuery = '';
   DataGridThemeMode _themeMode = DataGridThemeMode.light;
-  DataGridDensity _density = DataGridDensity.standard;
+  DataGridDensity _density = DataGridDensity.compact;
   Timer? _pageTransitionLoadingTimer;
   int _lastObservedPage = 1;
 
   String get _activeSearchQuery => _searchQuery.trim();
+
+  double _resolveGridHeight(double viewportHeight) {
+    const double reservedViewportSpace = 320;
+    return math.max(_defaultGridHeight, viewportHeight - reservedViewportSpace);
+  }
 
   List<DataGridColumn<CustomerRecord>> get _columns =>
       <DataGridColumn<CustomerRecord>>[
@@ -613,7 +618,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       _checkboxSelectionMax = 0;
       _searchQuery = '';
       _themeMode = DataGridThemeMode.light;
-      _density = DataGridDensity.standard;
+      _density = DataGridDensity.compact;
       _rows = List<CustomerRecord>.generate(_rowCount, CustomerRecord.sample);
     });
   }
@@ -650,6 +655,9 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
             SafeArea(
               child: LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
+                  final double gridHeight = _resolveGridHeight(
+                    constraints.maxHeight,
+                  );
                   return SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
                     child: ConstrainedBox(
@@ -874,7 +882,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                         totalRowCount: _filteredRows.length,
                                         loading:
                                             _loading || _pageTransitionLoading,
-                                        height: _defaultGridHeight,
+                                        height: gridHeight,
                                         density: _density,
                                         themeMode: _themeMode,
                                         multiSort: _multiSort,

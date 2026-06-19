@@ -1655,11 +1655,6 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                 borderColor: _palette.border,
                 isSelected: widget.controller.selectedRowKeys.contains(rowKey),
                 enabled: _canSelectRow(row, index),
-                onResize: (double delta) => widget.controller.resizeRow(
-                  rowKey,
-                  delta,
-                  baseHeight: _defaultRowHeight,
-                ),
                 onChanged: (_) => _toggleRowSelection(row, index),
               );
             },
@@ -1799,11 +1794,6 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                   _hoveredRowKeyNotifier.value = nextHoveredRowKey;
                 }
               },
-              onResize: (double delta) => widget.controller.resizeRow(
-                rowKey,
-                delta,
-                baseHeight: _defaultRowHeight,
-              ),
               onResizeColumn: (DataGridColumn<T> column, double delta) {
                 widget.controller.resizeColumn(
                   column.id,
@@ -2061,261 +2051,250 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: _palette.border),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      SizedBox(
-                        height: gridHeight,
-                        child: LayoutBuilder(
-                          builder:
-                              (
-                                BuildContext context,
-                                BoxConstraints constraints,
-                              ) {
-                                _lastViewportWidth = constraints.maxWidth;
-                                final double tableWidth = math.max(
-                                  _tableWidth,
-                                  constraints.maxWidth - 4,
-                                );
-                                return Row(
-                                  children: <Widget>[
-                                    if (_selectionConfig
-                                        .enableCheckboxSelection)
-                                      SizedBox(
-                                        width: _checkboxColumnWidth,
-                                        child: Column(
-                                          children: <Widget>[
-                                            _PinnedCheckboxHeader(
-                                              width: _checkboxColumnWidth,
-                                              height: _headerHeight,
-                                              palette: _palette,
-                                              isAllSelected:
-                                                  _visibleRows.isNotEmpty &&
-                                                  _visibleRows.every(
-                                                    (T row) => widget
-                                                        .controller
-                                                        .selectedRowKeys
-                                                        .contains(
-                                                          widget.rowKey(row),
-                                                        ),
-                                                  ),
-                                              isPartiallySelected:
-                                                  _visibleRows.any(
-                                                    (T row) => widget
-                                                        .controller
-                                                        .selectedRowKeys
-                                                        .contains(
-                                                          widget.rowKey(row),
-                                                        ),
-                                                  ) &&
-                                                  !_visibleRows.every(
-                                                    (T row) => widget
-                                                        .controller
-                                                        .selectedRowKeys
-                                                        .contains(
-                                                          widget.rowKey(row),
-                                                        ),
-                                                  ),
-                                              onChanged: _toggleSelectAll,
+                  child: SizedBox(
+                    height: gridHeight,
+                    child: Column(
+                      children: <Widget>[
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (BuildContext context, BoxConstraints constraints) {
+                              _lastViewportWidth = constraints.maxWidth;
+                              final double tableWidth = math.max(
+                                _tableWidth,
+                                constraints.maxWidth - 4,
+                              );
+                              return Row(
+                                children: <Widget>[
+                                  if (_selectionConfig.enableCheckboxSelection)
+                                    SizedBox(
+                                      width: _checkboxColumnWidth,
+                                      child: Column(
+                                        children: <Widget>[
+                                          _PinnedCheckboxHeader(
+                                            width: _checkboxColumnWidth,
+                                            height: _headerHeight,
+                                            palette: _palette,
+                                            isAllSelected:
+                                                _visibleRows.isNotEmpty &&
+                                                _visibleRows.every(
+                                                  (T row) => widget
+                                                      .controller
+                                                      .selectedRowKeys
+                                                      .contains(
+                                                        widget.rowKey(row),
+                                                      ),
+                                                ),
+                                            isPartiallySelected:
+                                                _visibleRows.any(
+                                                  (T row) => widget
+                                                      .controller
+                                                      .selectedRowKeys
+                                                      .contains(
+                                                        widget.rowKey(row),
+                                                      ),
+                                                ) &&
+                                                !_visibleRows.every(
+                                                  (T row) => widget
+                                                      .controller
+                                                      .selectedRowKeys
+                                                      .contains(
+                                                        widget.rowKey(row),
+                                                      ),
+                                                ),
+                                            onChanged: _toggleSelectAll,
+                                          ),
+                                          if (widget.extraTopValues != null)
+                                            _PinnedCheckboxSpacerRow(
+                                              height: 44,
+                                              color: _palette.surfaceMuted,
+                                              borderColor: _palette.border,
                                             ),
-                                            if (widget.extraTopValues != null)
-                                              _PinnedCheckboxSpacerRow(
-                                                height: 44,
-                                                color: _palette.surfaceMuted,
-                                                borderColor: _palette.border,
-                                              ),
-                                            Expanded(
-                                              child:
-                                                  _buildPinnedSelectionRows(),
+                                          Expanded(
+                                            child: _buildPinnedSelectionRows(),
+                                          ),
+                                          if (widget.extraBottomValues != null)
+                                            _PinnedCheckboxSpacerRow(
+                                              height: 44,
+                                              color: _palette.surfaceMuted,
+                                              borderColor: _palette.border,
                                             ),
-                                            if (widget.extraBottomValues !=
-                                                null)
-                                              _PinnedCheckboxSpacerRow(
-                                                height: 44,
-                                                color: _palette.surfaceMuted,
-                                                borderColor: _palette.border,
-                                              ),
-                                            if (widget.summaryValues != null &&
-                                                widget
-                                                    .summaryValues!
-                                                    .isNotEmpty)
-                                              _PinnedCheckboxSpacerRow(
-                                                height: 48,
-                                                color: _palette.summaryRow,
-                                                borderColor: _palette.border,
-                                                topBorder: true,
-                                              ),
-                                          ],
-                                        ),
+                                          if (widget.summaryValues != null &&
+                                              widget.summaryValues!.isNotEmpty)
+                                            _PinnedCheckboxSpacerRow(
+                                              height: 48,
+                                              color: _palette.summaryRow,
+                                              borderColor: _palette.border,
+                                              topBorder: true,
+                                            ),
+                                        ],
                                       ),
-                                    Expanded(
+                                    ),
+                                  Expanded(
+                                    child: Scrollbar(
+                                      controller: _verticalController,
+                                      thumbVisibility: true,
+                                      trackVisibility: true,
+                                      notificationPredicate:
+                                          (ScrollNotification notification) =>
+                                              notification.metrics.axis ==
+                                              Axis.vertical,
                                       child: Scrollbar(
-                                        controller: _verticalController,
+                                        controller: _horizontalController,
                                         thumbVisibility: true,
                                         trackVisibility: true,
                                         notificationPredicate:
                                             (ScrollNotification notification) =>
                                                 notification.metrics.axis ==
-                                                Axis.vertical,
-                                        child: Scrollbar(
+                                                Axis.horizontal,
+                                        child: SingleChildScrollView(
                                           controller: _horizontalController,
-                                          thumbVisibility: true,
-                                          trackVisibility: true,
-                                          notificationPredicate:
-                                              (
-                                                ScrollNotification notification,
-                                              ) =>
-                                                  notification.metrics.axis ==
-                                                  Axis.horizontal,
-                                          child: SingleChildScrollView(
-                                            controller: _horizontalController,
-                                            scrollDirection: Axis.horizontal,
-                                            child: SizedBox(
-                                              width: tableWidth,
-                                              child: Column(
-                                                children: <Widget>[
-                                                  _TableHeader<T>(
+                                          scrollDirection: Axis.horizontal,
+                                          child: SizedBox(
+                                            width: tableWidth,
+                                            child: Column(
+                                              children: <Widget>[
+                                                _TableHeader<T>(
+                                                  columns: columns,
+                                                  palette: _palette,
+                                                  height: _headerHeight,
+                                                  columnWidths: widget
+                                                      .controller
+                                                      .columnWidths,
+                                                  sortSpecs: widget
+                                                      .controller
+                                                      .options
+                                                      .sortSpecs,
+                                                  onResizeColumn:
+                                                      (
+                                                        DataGridColumn<T>
+                                                        column,
+                                                        double delta,
+                                                      ) {
+                                                        widget.controller
+                                                            .resizeColumn(
+                                                              column.id,
+                                                              delta,
+                                                              column.minWidth,
+                                                              column.maxWidth,
+                                                            );
+                                                      },
+                                                  onSortColumn:
+                                                      (
+                                                        DataGridColumn<T>
+                                                        column,
+                                                      ) {
+                                                        _ensureTableAnchorFocus(
+                                                          preferredColumnId:
+                                                              column.id,
+                                                        );
+                                                        widget.controller
+                                                            .toggleSort(
+                                                              column.id,
+                                                              multiSort: widget
+                                                                  .multiSort,
+                                                            );
+                                                      },
+                                                ),
+                                                if (widget.extraTopValues !=
+                                                    null)
+                                                  _SupplementaryRow<T>(
+                                                    values:
+                                                        widget.extraTopValues!,
                                                     columns: columns,
                                                     palette: _palette,
-                                                    height: _headerHeight,
                                                     columnWidths: widget
                                                         .controller
                                                         .columnWidths,
-                                                    sortSpecs: widget
+                                                    height: 44,
+                                                  ),
+                                                Expanded(
+                                                  child: _buildTableRows(
+                                                    columns,
+                                                  ),
+                                                ),
+                                                if (widget.extraBottomValues !=
+                                                    null)
+                                                  _SupplementaryRow<T>(
+                                                    values: widget
+                                                        .extraBottomValues!,
+                                                    columns: columns,
+                                                    palette: _palette,
+                                                    columnWidths: widget
                                                         .controller
-                                                        .options
-                                                        .sortSpecs,
-                                                    onResizeColumn:
-                                                        (
-                                                          DataGridColumn<T>
-                                                          column,
-                                                          double delta,
-                                                        ) {
-                                                          widget.controller
-                                                              .resizeColumn(
-                                                                column.id,
-                                                                delta,
-                                                                column.minWidth,
-                                                                column.maxWidth,
-                                                              );
-                                                        },
-                                                    onSortColumn:
-                                                        (
-                                                          DataGridColumn<T>
-                                                          column,
-                                                        ) {
-                                                          _ensureTableAnchorFocus(
-                                                            preferredColumnId:
-                                                                column.id,
-                                                          );
-                                                          widget.controller
-                                                              .toggleSort(
-                                                                column.id,
-                                                                multiSort: widget
-                                                                    .multiSort,
-                                                              );
-                                                        },
+                                                        .columnWidths,
+                                                    height: 44,
                                                   ),
-                                                  if (widget.extraTopValues !=
-                                                      null)
-                                                    _SupplementaryRow<T>(
-                                                      values: widget
-                                                          .extraTopValues!,
-                                                      columns: columns,
-                                                      palette: _palette,
-                                                      columnWidths: widget
-                                                          .controller
-                                                          .columnWidths,
-                                                      height: 44,
-                                                    ),
-                                                  Expanded(
-                                                    child: _buildTableRows(
-                                                      columns,
-                                                    ),
+                                                if (widget.summaryValues !=
+                                                        null &&
+                                                    widget
+                                                        .summaryValues!
+                                                        .isNotEmpty)
+                                                  _SummaryRow<T>(
+                                                    values:
+                                                        widget.summaryValues!,
+                                                    columns: columns,
+                                                    palette: _palette,
+                                                    columnWidths: widget
+                                                        .controller
+                                                        .columnWidths,
+                                                    height: 48,
                                                   ),
-                                                  if (widget
-                                                          .extraBottomValues !=
-                                                      null)
-                                                    _SupplementaryRow<T>(
-                                                      values: widget
-                                                          .extraBottomValues!,
-                                                      columns: columns,
-                                                      palette: _palette,
-                                                      columnWidths: widget
-                                                          .controller
-                                                          .columnWidths,
-                                                      height: 44,
-                                                    ),
-                                                  if (widget.summaryValues !=
-                                                          null &&
-                                                      widget
-                                                          .summaryValues!
-                                                          .isNotEmpty)
-                                                    _SummaryRow<T>(
-                                                      values:
-                                                          widget.summaryValues!,
-                                                      columns: columns,
-                                                      palette: _palette,
-                                                      columnWidths: widget
-                                                          .controller
-                                                          .columnWidths,
-                                                      height: 48,
-                                                    ),
-                                                ],
-                                              ),
+                                              ],
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ],
-                                );
-                              },
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      if (widget.showFooter)
-                        _DataGridFooter(
-                          palette: _palette,
-                          loading: widget.loading,
-                          pageStartIndex: _pageStartIndex,
-                          pageEndIndex: _pageEndIndex,
-                          totalRows: _totalRows,
-                          currentPage: currentPage,
-                          totalPages: _totalPages,
-                          pageSize: widget.controller.options.pageSize,
-                          pageSizeOptions: widget.pageSizeOptions,
-                          selectedCount:
-                              widget.controller.selectedRowKeys.length,
-                          showSelectedCount: widget.showSelectedCount,
-                          onOpenSettings: _openColumnSettings,
-                          onPrevious: currentPage > 1
-                              ? () => _moveToPage(
-                                  currentPage - 1,
-                                  targetRowIndex:
-                                      _focusedVisibleRowIndex() ?? 0,
-                                  targetColumnIndex:
-                                      _focusedColumnIndex() ??
-                                      _defaultFocusableColumnIndex,
-                                )
-                              : null,
-                          onNext: currentPage < _totalPages
-                              ? () => _moveToPage(
-                                  currentPage + 1,
-                                  targetRowIndex:
-                                      _focusedVisibleRowIndex() ?? 0,
-                                  targetColumnIndex:
-                                      _focusedColumnIndex() ??
-                                      _defaultFocusableColumnIndex,
-                                )
-                              : null,
-                          onPageSizeChanged: (int? value) {
-                            if (value == null) {
-                              return;
-                            }
-                            widget.controller.setPageSize(value);
-                          },
-                        ),
-                    ],
+                        if (widget.showFooter)
+                          _DataGridFooter(
+                            palette: _palette,
+                            loading: widget.loading,
+                            pageStartIndex: _pageStartIndex,
+                            pageEndIndex: _pageEndIndex,
+                            totalRows: _totalRows,
+                            currentPage: currentPage,
+                            totalPages: _totalPages,
+                            pageSize: widget.controller.options.pageSize,
+                            pageSizeOptions: widget.pageSizeOptions,
+                            selectedCount:
+                                widget.controller.selectedRowKeys.length,
+                            showSelectedCount: widget.showSelectedCount,
+                            onOpenSettings: _openColumnSettings,
+                            onPrevious: currentPage > 1
+                                ? () => _moveToPage(
+                                    currentPage - 1,
+                                    targetRowIndex:
+                                        _focusedVisibleRowIndex() ?? 0,
+                                    targetColumnIndex:
+                                        _focusedColumnIndex() ??
+                                        _defaultFocusableColumnIndex,
+                                  )
+                                : null,
+                            onNext: currentPage < _totalPages
+                                ? () => _moveToPage(
+                                    currentPage + 1,
+                                    targetRowIndex:
+                                        _focusedVisibleRowIndex() ?? 0,
+                                    targetColumnIndex:
+                                        _focusedColumnIndex() ??
+                                        _defaultFocusableColumnIndex,
+                                  )
+                                : null,
+                            onPageSizeChanged: (int? value) {
+                              if (value == null) {
+                                return;
+                              }
+                              widget.controller.setPageSize(value);
+                            },
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 Positioned(
@@ -2591,7 +2570,6 @@ class _TableRowWidget<T> extends StatelessWidget {
     required this.onEditorClear,
     required this.onEditorKeyEvent,
     required this.onHoverChanged,
-    required this.onResize,
     required this.onResizeColumn,
   });
 
@@ -2619,7 +2597,6 @@ class _TableRowWidget<T> extends StatelessWidget {
   final VoidCallback onEditorClear;
   final KeyEventResult Function(KeyEvent event) onEditorKeyEvent;
   final ValueChanged<bool> onHoverChanged;
-  final ValueChanged<double> onResize;
   final void Function(DataGridColumn<T> column, double delta) onResizeColumn;
 
   @override
@@ -2806,12 +2783,7 @@ class _TableRowWidget<T> extends StatelessWidget {
                                       ),
                                       child: Align(
                                         alignment: column.alignment,
-                                        child: SelectionArea(
-                                          child: column.cellBuilder(
-                                            context,
-                                            row,
-                                          ),
-                                        ),
+                                        child: column.cellBuilder(context, row),
                                       ),
                                     ),
                                   ),
@@ -2849,39 +2821,9 @@ class _TableRowWidget<T> extends StatelessWidget {
                               ),
                       ),
                     ),
-                    if (column.resizable)
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        child: MouseRegion(
-                          cursor: SystemMouseCursors.resizeColumn,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onHorizontalDragUpdate:
-                                (DragUpdateDetails details) =>
-                                    onResizeColumn(column, details.delta.dx),
-                            child: const SizedBox(width: 12),
-                          ),
-                        ),
-                      ),
                   ],
                 );
               }),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: MouseRegion(
-              cursor: SystemMouseCursors.resizeRow,
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onVerticalDragUpdate: (DragUpdateDetails details) =>
-                    onResize(details.delta.dy),
-                child: const SizedBox(height: 12),
-              ),
             ),
           ),
         ],
@@ -2941,7 +2883,6 @@ class _PinnedCheckboxRow extends StatelessWidget {
     required this.borderColor,
     required this.isSelected,
     required this.enabled,
-    required this.onResize,
     required this.onChanged,
   });
 
@@ -2951,7 +2892,6 @@ class _PinnedCheckboxRow extends StatelessWidget {
   final Color borderColor;
   final bool isSelected;
   final bool enabled;
-  final ValueChanged<double> onResize;
   final ValueChanged<bool?> onChanged;
 
   @override
@@ -2986,20 +2926,6 @@ class _PinnedCheckboxRow extends StatelessWidget {
               child: SizedBox(width: 3),
             ),
           ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.resizeRow,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onVerticalDragUpdate: (DragUpdateDetails details) =>
-                  onResize(details.delta.dy),
-              child: const SizedBox(height: 12),
-            ),
-          ),
-        ),
       ],
     );
   }

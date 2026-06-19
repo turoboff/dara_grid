@@ -1,0 +1,21 @@
+name: data_grid_example
+description: Example app for the reusable data_grid package.
+publish_to: none
+
+environment:
+  sdk: ^3.11.4
+  flutter: ">=3.35.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  data_grid:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

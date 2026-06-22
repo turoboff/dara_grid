@@ -1915,6 +1915,8 @@ class _DataGridState<T> extends State<DataGrid<T>> {
 
   Future<void> _openColumnSettings() async {
     final List<DataGridColumn<T>> columns = widget.columns;
+    final DataGridThemeData themeData = _themeData;
+    final ScrollController settingsScrollController = ScrollController();
     final List<String>? result = await showDialog<List<String>>(
       context: context,
       builder: (BuildContext context) {
@@ -1923,77 +1925,353 @@ class _DataGridState<T> extends State<DataGrid<T>> {
             ? columns.map((DataGridColumn<T> column) => column.id).toList()
             : widget.controller.orderedColumnIds.toList();
         return StatefulBuilder(
-          builder:
-              (BuildContext context, void Function(void Function()) setState) {
-                return AlertDialog(
-                  title: const Text('Column settings'),
-                  content: SizedBox(
-                    width: 420,
-                    height: 420,
-                    child: ReorderableListView.builder(
-                      itemCount: ordered.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        final DataGridColumn<T> column = columns.firstWhere(
-                          (DataGridColumn<T> item) => item.id == ordered[index],
-                        );
-                        return CheckboxListTile(
-                          key: ValueKey<String>(column.id),
-                          value:
-                              !hidden.contains(column.id) || !column.hideable,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(column.label),
-                          secondary: column.reorderable
-                              ? const Icon(Icons.drag_indicator_rounded)
-                              : const Icon(Icons.lock_outline_rounded),
-                          onChanged: column.hideable
-                              ? (bool? value) {
-                                  setState(() {
-                                    if (value ?? false) {
-                                      hidden.remove(column.id);
-                                    } else {
-                                      hidden.add(column.id);
-                                    }
-                                  });
-                                }
-                              : null,
-                        );
-                      },
-                      onReorder: (int oldIndex, int newIndex) {
-                        setState(() {
-                          if (newIndex > oldIndex) {
-                            newIndex -= 1;
-                          }
-                          final String item = ordered.removeAt(oldIndex);
-                          ordered.insert(newIndex, item);
-                        });
-                      },
+          builder: (BuildContext context, void Function(void Function()) setState) {
+            final int visibleCount =
+                ordered.length - hidden.intersection(ordered.toSet()).length;
+            final Color panelColor = Color.alphaBlend(
+              themeData.surface.withValues(
+                alpha: themeData.brightness == Brightness.dark ? 0.96 : 0.98,
+              ),
+              themeData.surfaceMuted,
+            );
+            final Color panelBorder = themeData.border.withValues(
+              alpha: themeData.brightness == Brightness.dark ? 0.85 : 0.65,
+            );
+            return Dialog(
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 24,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 560,
+                  maxHeight: 720,
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: panelColor,
+                    borderRadius: BorderRadius.circular(
+                      themeData.surfaceRadius + 6,
+                    ),
+                    border: Border.all(color: panelBorder),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: themeData.brightness == Brightness.dark
+                              ? 0.32
+                              : 0.12,
+                        ),
+                        blurRadius: 34,
+                        offset: const Offset(0, 20),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    'Column settings',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                          color: themeData.editorText,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '$visibleCount of ${ordered.length} columns visible. Drag rows to shape the table layout.',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: themeData.footerText,
+                                          height: 1.4,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              tooltip: 'Close',
+                              style: IconButton.styleFrom(
+                                backgroundColor: themeData.surfaceMuted,
+                                foregroundColor: themeData.footerText,
+                                side: BorderSide(
+                                  color: themeData.border.withValues(
+                                    alpha: 0.75,
+                                  ),
+                                ),
+                              ),
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: themeData.surfaceMuted,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: themeData.border.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              Icon(
+                                Icons.view_column_rounded,
+                                size: 18,
+                                color: themeData.accent,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Visible columns stay in the table. Hidden ones can be brought back anytime.',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: themeData.footerText,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Flexible(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: themeData.surfaceMuted.withValues(
+                                alpha: themeData.brightness == Brightness.dark
+                                    ? 0.38
+                                    : 0.72,
+                              ),
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: themeData.border.withValues(alpha: 0.55),
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(22),
+                              child: Scrollbar(
+                                controller: settingsScrollController,
+                                thumbVisibility: true,
+                                trackVisibility: true,
+                                child: Theme(
+                                  data: Theme.of(
+                                    context,
+                                  ).copyWith(canvasColor: Colors.transparent),
+                                  child: ReorderableListView.builder(
+                                    buildDefaultDragHandles: false,
+                                    scrollController: settingsScrollController,
+                                    padding: const EdgeInsets.fromLTRB(
+                                      14,
+                                      14,
+                                      14,
+                                      10,
+                                    ),
+                                    itemCount: ordered.length,
+                                    proxyDecorator:
+                                        (
+                                          Widget child,
+                                          int index,
+                                          Animation<double> animation,
+                                        ) {
+                                          return AnimatedBuilder(
+                                            animation: animation,
+                                            builder:
+                                                (
+                                                  BuildContext context,
+                                                  Widget? _,
+                                                ) {
+                                                  final double t = Curves
+                                                      .easeOutCubic
+                                                      .transform(
+                                                        animation.value,
+                                                      );
+                                                  return Transform.scale(
+                                                    scale: 1 + (0.015 * t),
+                                                    child: DecoratedBox(
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              20,
+                                                            ),
+                                                        boxShadow: <BoxShadow>[
+                                                          BoxShadow(
+                                                            color: themeData
+                                                                .accent
+                                                                .withValues(
+                                                                  alpha: 0.16,
+                                                                ),
+                                                            blurRadius: 28,
+                                                            offset:
+                                                                const Offset(
+                                                                  0,
+                                                                  16,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: child,
+                                                    ),
+                                                  );
+                                                },
+                                          );
+                                        },
+                                    itemBuilder: (BuildContext context, int index) {
+                                      final DataGridColumn<T> column = columns
+                                          .firstWhere(
+                                            (DataGridColumn<T> item) =>
+                                                item.id == ordered[index],
+                                          );
+                                      final bool isVisible =
+                                          !hidden.contains(column.id) ||
+                                          !column.hideable;
+                                      return Padding(
+                                        key: ValueKey<String>(column.id),
+                                        padding: EdgeInsets.only(
+                                          bottom: index == ordered.length - 1
+                                              ? 0
+                                              : 12,
+                                        ),
+                                        child: _ColumnSettingsRow(
+                                          label: column.label,
+                                          isVisible: isVisible,
+                                          hideable: column.hideable,
+                                          reorderable: column.reorderable,
+                                          themeData: themeData,
+                                          onChanged: column.hideable
+                                              ? (bool value) {
+                                                  setState(() {
+                                                    if (value) {
+                                                      hidden.remove(column.id);
+                                                    } else {
+                                                      hidden.add(column.id);
+                                                    }
+                                                  });
+                                                }
+                                              : null,
+                                          dragHandle: column.reorderable
+                                              ? ReorderableDragStartListener(
+                                                  index: index,
+                                                  child: Icon(
+                                                    Icons
+                                                        .drag_indicator_rounded,
+                                                    color: themeData.footerText,
+                                                  ),
+                                                )
+                                              : Icon(
+                                                  Icons.lock_outline_rounded,
+                                                  color: themeData.muted,
+                                                ),
+                                        ),
+                                      );
+                                    },
+                                    onReorder: (int oldIndex, int newIndex) {
+                                      setState(() {
+                                        if (newIndex > oldIndex) {
+                                          newIndex -= 1;
+                                        }
+                                        final String item = ordered.removeAt(
+                                          oldIndex,
+                                        );
+                                        ordered.insert(newIndex, item);
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: <Widget>[
+                            TextButton(
+                              onPressed: () {
+                                widget.controller.resetColumns(widget.columns);
+                                Navigator.of(context).pop();
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: themeData.accent,
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              child: const Text('Reset'),
+                            ),
+                            const Spacer(),
+                            OutlinedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: themeData.footerText,
+                                side: BorderSide(color: themeData.border),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                            const SizedBox(width: 12),
+                            FilledButton(
+                              onPressed: () =>
+                                  Navigator.of(context).pop(<String>[
+                                    ...ordered,
+                                    '::hidden::${hidden.join(",")}',
+                                  ]),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: themeData.accent,
+                                foregroundColor:
+                                    themeData.filledControlForeground,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              child: const Text('Apply'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  actions: <Widget>[
-                    TextButton(
-                      onPressed: () {
-                        widget.controller.resetColumns(widget.columns);
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Reset'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.of(context).pop(<String>[
-                        ...ordered,
-                        '::hidden::${hidden.join(",")}',
-                      ]),
-                      child: const Text('Apply'),
-                    ),
-                  ],
-                );
-              },
+                ),
+              ),
+            );
+          },
         );
       },
     );
+    settingsScrollController.dispose();
 
     if (result == null || result.isEmpty) {
       return;
@@ -3345,6 +3623,139 @@ class _ColumnSettingsFloatingButton extends StatelessWidget {
               themeData.pagerButtonRadius + 4,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ColumnSettingsRow extends StatelessWidget {
+  const _ColumnSettingsRow({
+    required this.label,
+    required this.isVisible,
+    required this.hideable,
+    required this.reorderable,
+    required this.themeData,
+    required this.dragHandle,
+    this.onChanged,
+  });
+
+  final String label;
+  final bool isVisible;
+  final bool hideable;
+  final bool reorderable;
+  final DataGridThemeData themeData;
+  final ValueChanged<bool>? onChanged;
+  final Widget dragHandle;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool enabled = onChanged != null;
+    final Color borderColor = isVisible
+        ? themeData.accent.withValues(alpha: 0.32)
+        : themeData.border.withValues(alpha: 0.75);
+    final Color backgroundColor = isVisible
+        ? Color.alphaBlend(
+            themeData.accent.withValues(
+              alpha: themeData.brightness == Brightness.dark ? 0.15 : 0.08,
+            ),
+            themeData.surface,
+          )
+        : Color.alphaBlend(
+            themeData.surfaceMuted.withValues(alpha: 0.8),
+            themeData.surface,
+          );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? () => onChanged?.call(!isVisible) : null,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: borderColor),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: <Widget>[
+              CupertinoCheckbox(
+                value: isVisible,
+                onChanged: enabled
+                    ? (bool? value) => onChanged?.call(value ?? false)
+                    : null,
+                activeColor: themeData.accent,
+                checkColor: themeData.checkboxCheckColor,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        Text(
+                          label,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: enabled
+                                    ? themeData.editorText
+                                    : themeData.footerText.withValues(
+                                        alpha: 0.8,
+                                      ),
+                              ),
+                        ),
+                        if (!hideable)
+                          _ColumnSettingsPill(
+                            label: 'Required',
+                            color: themeData.border,
+                            foregroundColor: themeData.footerText,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(width: 40, child: Center(child: dragHandle)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ColumnSettingsPill extends StatelessWidget {
+  const _ColumnSettingsPill({
+    required this.label,
+    required this.color,
+    required this.foregroundColor,
+  });
+
+  final String label;
+  final Color color;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: foregroundColor,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.1,
         ),
       ),
     );

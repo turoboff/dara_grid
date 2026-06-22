@@ -84,7 +84,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
           overflow: TextOverflow.ellipsis,
           style: Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
+          ).textTheme.bodyMedium?.copyWith(color: _showcaseMutedText(context)),
         ),
       ),
     ),
@@ -97,7 +97,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       editorText: (CustomerRecord record) => record.customer,
       editorTextStyle: (BuildContext context, CustomerRecord record) =>
           Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF0F172A),
+            color: _showcaseStrongText(context),
             fontWeight: FontWeight.w700,
           ),
       editable: (_) => true,
@@ -118,7 +118,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       editorTextStyle: (BuildContext context, CustomerRecord record) =>
           Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
+          ).textTheme.bodyMedium?.copyWith(color: _showcaseStrongText(context)),
       editable: (_) => true,
       required: true,
       cellBuilder: (_, CustomerRecord record) =>
@@ -133,7 +133,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       editorTextStyle: (BuildContext context, CustomerRecord record) =>
           Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
+          ).textTheme.bodyMedium?.copyWith(color: _showcaseMutedText(context)),
       editable: (_) => true,
       required: true,
       cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
@@ -167,7 +167,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       editorText: (CustomerRecord record) => record.balance.toStringAsFixed(2),
       editorTextStyle: (BuildContext context, CustomerRecord record) =>
           Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: const Color(0xFF0F172A),
+            color: _showcaseStrongText(context),
             fontWeight: FontWeight.w700,
           ),
       editable: (_) => true,
@@ -205,7 +205,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       summaryBuilder: (BuildContext context, Object? value) => Text(
         value?.toString() ?? '',
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: const Color(0xFF0F172A),
+          color: _showcaseStrongText(context),
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -219,7 +219,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       editorTextStyle: (BuildContext context, CustomerRecord record) =>
           Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
+          ).textTheme.bodyMedium?.copyWith(color: _showcaseStrongText(context)),
       editable: (_) => true,
       required: true,
       cellBuilder: (_, CustomerRecord record) =>
@@ -255,7 +255,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       editorTextStyle: (BuildContext context, CustomerRecord record) =>
           Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
+          ).textTheme.bodyMedium?.copyWith(color: _showcaseStrongText(context)),
       editable: (_) => true,
       saveTrigger: DataGridSaveTrigger.both,
       cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
@@ -312,6 +312,36 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
   }
 
   List<CustomerRecord> get _gridRows => _filteredRows;
+
+  ThemeData _gridMaterialTheme(BuildContext context) {
+    final ThemeData base = Theme.of(context);
+    final Brightness brightness = switch (_themeMode) {
+      DataGridThemeMode.system => base.brightness,
+      DataGridThemeMode.light => Brightness.light,
+      DataGridThemeMode.dark => Brightness.dark,
+    };
+    if (base.brightness == brightness) {
+      return base;
+    }
+    final ColorScheme scheme = ColorScheme.fromSeed(
+      seedColor: base.colorScheme.primary,
+      brightness: brightness,
+    );
+    return base.copyWith(
+      colorScheme: scheme,
+      scaffoldBackgroundColor: scheme.surface,
+      canvasColor: scheme.surface,
+      textTheme: base.textTheme.apply(
+        bodyColor: scheme.onSurface,
+        displayColor: scheme.onSurface,
+      ),
+      primaryTextTheme: base.primaryTextTheme.apply(
+        bodyColor: scheme.onSurface,
+        displayColor: scheme.onSurface,
+      ),
+      iconTheme: base.iconTheme.copyWith(color: scheme.onSurfaceVariant),
+    );
+  }
 
   String? get _storageKey => _persistenceEnabled
       ? (_editableMode ? _editableStorageKey : _readonlyStorageKey)
@@ -846,54 +876,58 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                   child: SizedBox(
                                     key: const Key('customer-grid-host'),
                                     width: double.infinity,
-                                    child: DataGrid<CustomerRecord>(
-                                      key: const Key('customer-grid'),
-                                      columns: _columns,
-                                      rows: _gridRows,
-                                      rowKey: (CustomerRecord row) => row.id,
-                                      controller: _gridController,
-                                      persistenceAdapter: _persistenceAdapter,
-                                      storageKey: _storageKey,
-                                      mode: _editableMode
-                                          ? DataGridMode.editable
-                                          : DataGridMode.readonly,
-                                      navigationConfig:
-                                          DataGridNavigationConfig(
-                                            autoFocus: true,
-                                            keyboardNavigation:
-                                                _keyboardNavigation,
-                                            rowSelectFocusColumnId: 'customer',
-                                          ),
-                                      pageSizeOptions: _pageSizeOptions,
-                                      selectionConfig: _selectionConfig,
-                                      totalRowCount: _filteredRows.length,
-                                      loading:
-                                          _loading || _pageTransitionLoading,
-                                      height: gridHeight,
-                                      density: _density,
-                                      themeMode: _themeMode,
-                                      multiSort: _multiSort,
-                                      persistSort: true,
-                                      showFooter: _pagingEnabled,
-                                      showSelectedCount: _showSelectedCount,
-                                      summaryValues: _summaryValues,
-                                      extraTopValues: _extraTopValues,
-                                      extraBottomValues: _extraBottomValues,
-                                      rowColorBuilder: _showRowStyle
-                                          ? (
-                                              CustomerRecord row,
-                                              int rowIndex,
-                                              bool isSelected,
-                                              bool isHovered,
-                                            ) => _baseRowColor(
-                                              context,
-                                              rowIndex,
-                                              row,
-                                            )
-                                          : null,
-                                      onOptionsChanged:
-                                          _handleGridOptionsChanged,
-                                      onEditCommit: _handleInlineEditCommit,
+                                    child: Theme(
+                                      data: _gridMaterialTheme(context),
+                                      child: DataGrid<CustomerRecord>(
+                                        key: const Key('customer-grid'),
+                                        columns: _columns,
+                                        rows: _gridRows,
+                                        rowKey: (CustomerRecord row) => row.id,
+                                        controller: _gridController,
+                                        persistenceAdapter: _persistenceAdapter,
+                                        storageKey: _storageKey,
+                                        mode: _editableMode
+                                            ? DataGridMode.editable
+                                            : DataGridMode.readonly,
+                                        navigationConfig:
+                                            DataGridNavigationConfig(
+                                              autoFocus: true,
+                                              keyboardNavigation:
+                                                  _keyboardNavigation,
+                                              rowSelectFocusColumnId:
+                                                  'customer',
+                                            ),
+                                        pageSizeOptions: _pageSizeOptions,
+                                        selectionConfig: _selectionConfig,
+                                        totalRowCount: _filteredRows.length,
+                                        loading:
+                                            _loading || _pageTransitionLoading,
+                                        height: gridHeight,
+                                        density: _density,
+                                        themeMode: _themeMode,
+                                        multiSort: _multiSort,
+                                        persistSort: true,
+                                        showFooter: _pagingEnabled,
+                                        showSelectedCount: _showSelectedCount,
+                                        summaryValues: _summaryValues,
+                                        extraTopValues: _extraTopValues,
+                                        extraBottomValues: _extraBottomValues,
+                                        rowColorBuilder: _showRowStyle
+                                            ? (
+                                                CustomerRecord row,
+                                                int rowIndex,
+                                                bool isSelected,
+                                                bool isHovered,
+                                              ) => _baseRowColor(
+                                                context,
+                                                rowIndex,
+                                                row,
+                                              )
+                                            : null,
+                                        onOptionsChanged:
+                                            _handleGridOptionsChanged,
+                                        onEditCommit: _handleInlineEditCommit,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1932,7 +1966,7 @@ class _PlainTextCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextStyle? style = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: muted ? const Color(0xFF64748B) : const Color(0xFF0F172A),
+      color: muted ? _showcaseMutedText(context) : _showcaseStrongText(context),
     );
     return Align(
       alignment: Alignment.centerLeft,
@@ -1960,10 +1994,13 @@ class _PrimaryCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextStyle? titleStyle = Theme.of(context).textTheme.bodyMedium
-        ?.copyWith(color: const Color(0xFF0F172A), fontWeight: FontWeight.w700);
+        ?.copyWith(
+          color: _showcaseStrongText(context),
+          fontWeight: FontWeight.w700,
+        );
     final TextStyle? subtitleStyle = Theme.of(
       context,
-    ).textTheme.bodySmall?.copyWith(color: const Color(0xFF64748B));
+    ).textTheme.bodySmall?.copyWith(color: _showcaseMutedText(context));
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2043,7 +2080,9 @@ class _MetricCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextStyle? style = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: emphasis ? const Color(0xFF0F172A) : const Color(0xFF334155),
+      color: emphasis
+          ? _showcaseStrongText(context)
+          : _showcaseMutedText(context),
       fontWeight: emphasis ? FontWeight.w700 : FontWeight.w500,
     );
     return _SelectableCellText(
@@ -2115,7 +2154,7 @@ class _ProgressCell extends StatelessWidget {
         '$progress%',
         highlightQuery: highlightQuery,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: const Color(0xFF475569),
+          color: _showcaseMutedText(context),
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -2135,11 +2174,11 @@ class _OwnerCell extends StatelessWidget {
       children: <Widget>[
         CircleAvatar(
           radius: 14,
-          backgroundColor: const Color(0xFFDBEAFE),
+          backgroundColor: _showcaseAvatarBackground(context),
           child: Text(
             owner.characters.first,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: const Color(0xFF1D4ED8),
+              color: _showcaseAvatarForeground(context),
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -2153,6 +2192,28 @@ class _OwnerCell extends StatelessWidget {
 
 String _normalizeSearchText(String value) {
   return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
+}
+
+Color _showcaseStrongText(BuildContext context) {
+  return Theme.of(context).colorScheme.onSurface;
+}
+
+Color _showcaseMutedText(BuildContext context) {
+  return Theme.of(context).colorScheme.onSurfaceVariant;
+}
+
+Color _showcaseAvatarBackground(BuildContext context) {
+  final ThemeData theme = Theme.of(context);
+  return Color.alphaBlend(
+    theme.colorScheme.primary.withValues(
+      alpha: theme.brightness == Brightness.dark ? 0.32 : 0.16,
+    ),
+    theme.colorScheme.surface,
+  );
+}
+
+Color _showcaseAvatarForeground(BuildContext context) {
+  return Theme.of(context).colorScheme.primary;
 }
 
 List<InlineSpan> _buildHighlightedTextSpans({

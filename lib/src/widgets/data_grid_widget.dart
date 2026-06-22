@@ -13,6 +13,7 @@ import '../internal/grid_calculations.dart';
 import '../internal/grid_selection_utils.dart';
 import '../models/models.dart';
 import '../persistence/data_grid_persistence.dart';
+import '../theme/data_grid_theme.dart';
 
 /// Reusable data grid widget with sorting, paging, selection, and inline editing.
 class DataGrid<T> extends StatefulWidget {
@@ -31,6 +32,7 @@ class DataGrid<T> extends StatefulWidget {
     this.navigationConfig = const DataGridNavigationConfig(),
     this.density = DataGridDensity.compact,
     this.themeMode = DataGridThemeMode.system,
+    this.theme,
     this.multiSort = true,
     this.persistSort = false,
     this.showFooter = true,
@@ -89,6 +91,9 @@ class DataGrid<T> extends StatefulWidget {
 
   /// Controls the grid brightness palette.
   final DataGridThemeMode themeMode;
+
+  /// Optional local override for the resolved grid theme.
+  final DataGridThemeData? theme;
 
   /// Allows multiple active sort entries when true.
   final bool multiSort;
@@ -158,8 +163,6 @@ class DataGrid<T> extends StatefulWidget {
 }
 
 class _DataGridState<T> extends State<DataGrid<T>> {
-  static const double _checkboxColumnWidth = 56;
-
   final ScrollController _horizontalController = ScrollController();
   final ScrollController _verticalController = ScrollController();
   final ScrollController _fixedVerticalController = ScrollController();
@@ -316,28 +319,17 @@ class _DataGridState<T> extends State<DataGrid<T>> {
     _cachedTotalRows = null;
   }
 
-  _GridPalette get _palette {
-    final Brightness brightness = switch (widget.themeMode) {
-      DataGridThemeMode.system => Theme.of(context).brightness,
-      DataGridThemeMode.light => Brightness.light,
-      DataGridThemeMode.dark => Brightness.dark,
-    };
-    return brightness == Brightness.dark
-        ? const _GridPalette.dark()
-        : const _GridPalette.light();
-  }
+  DataGridThemeData get _themeData => DataGridTheme.of(
+    context,
+    themeMode: widget.themeMode,
+    override: widget.theme,
+  );
 
-  double get _headerHeight => switch (widget.density) {
-    DataGridDensity.compact => 40,
-    DataGridDensity.standard => 48,
-    DataGridDensity.comfortable => 56,
-  };
+  double get _headerHeight => _themeData.headerHeight(widget.density);
 
-  double get _defaultRowHeight => switch (widget.density) {
-    DataGridDensity.compact => 44,
-    DataGridDensity.standard => 52,
-    DataGridDensity.comfortable => 60,
-  };
+  double get _defaultRowHeight => _themeData.rowHeight(widget.density);
+
+  double get _checkboxColumnWidth => _themeData.selectionColumnWidth;
 
   List<DataGridColumn<T>> get _orderedVisibleColumns {
     return DataGridCalculations.orderedVisibleColumns<T>(
@@ -1551,10 +1543,7 @@ class _DataGridState<T> extends State<DataGrid<T>> {
       return;
     }
     _syncingFixedScroll = true;
-    final double target = _verticalController.offset.clamp(
-      _fixedVerticalController.position.minScrollExtent,
-      _fixedVerticalController.position.maxScrollExtent,
-    );
+    final double target = _verticalController.offset;
     if ((_fixedVerticalController.offset - target).abs() > 0.5) {
       _fixedVerticalController.jumpTo(target);
     }
@@ -1611,12 +1600,12 @@ class _DataGridState<T> extends State<DataGrid<T>> {
     final bool isSelected = widget.controller.selectedRowKeys.contains(key);
     final Color base =
         widget.rowColorBuilder?.call(row, index, isSelected, isHovered) ??
-        (index.isEven ? _palette.row : _palette.rowAlt);
+        (index.isEven ? _themeData.row : _themeData.rowAlt);
     if (isFocusedRow || isSelected) {
-      return _palette.selectedRow;
+      return _themeData.selectedRow;
     }
     if (isHovered) {
-      return _palette.hoverRow;
+      return _themeData.hoverRow;
     }
     return base;
   }
@@ -1652,10 +1641,11 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                   row,
                   isHovered: hoveredRowKey == rowKey,
                 ),
-                borderColor: _palette.border,
+                borderColor: _themeData.border,
                 isSelected: widget.controller.selectedRowKeys.contains(rowKey),
                 enabled: _canSelectRow(row, index),
                 onChanged: (_) => _toggleRowSelection(row, index),
+                themeData: _themeData,
               );
             },
           );
@@ -1696,7 +1686,7 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                 row,
                 isHovered: hoveredRowKey == rowKey,
               ),
-              borderColor: _palette.border,
+              borderColor: _themeData.border,
               focusedRowKey: widget.controller.focusedRowKey,
               focusedColumnId: widget.controller.focusedColumnId,
               editingRowKey: _editingRowKey,
@@ -1705,6 +1695,7 @@ class _DataGridState<T> extends State<DataGrid<T>> {
               editingFocusNode: _editingFocusNode,
               editingErrorText: _editingErrorText,
               isEditableMode: _isEditableMode,
+              themeData: _themeData,
               onTap: () {
                 widget.onRowTap?.call(row);
               },
@@ -2047,9 +2038,11 @@ class _DataGridState<T> extends State<DataGrid<T>> {
               children: <Widget>[
                 Container(
                   decoration: BoxDecoration(
-                    color: _palette.surface,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: _palette.border),
+                    color: _themeData.surface,
+                    borderRadius: BorderRadius.circular(
+                      _themeData.surfaceRadius,
+                    ),
+                    border: Border.all(color: _themeData.border),
                   ),
                   child: SizedBox(
                     height: gridHeight,
@@ -2073,7 +2066,7 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                                           _PinnedCheckboxHeader(
                                             width: _checkboxColumnWidth,
                                             height: _headerHeight,
-                                            palette: _palette,
+                                            themeData: _themeData,
                                             isAllSelected:
                                                 _visibleRows.isNotEmpty &&
                                                 _visibleRows.every(
@@ -2105,25 +2098,28 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                                           ),
                                           if (widget.extraTopValues != null)
                                             _PinnedCheckboxSpacerRow(
-                                              height: 44,
-                                              color: _palette.surfaceMuted,
-                                              borderColor: _palette.border,
+                                              height: _themeData
+                                                  .supplementaryRowHeight,
+                                              color: _themeData.surfaceMuted,
+                                              borderColor: _themeData.border,
                                             ),
                                           Expanded(
                                             child: _buildPinnedSelectionRows(),
                                           ),
                                           if (widget.extraBottomValues != null)
                                             _PinnedCheckboxSpacerRow(
-                                              height: 44,
-                                              color: _palette.surfaceMuted,
-                                              borderColor: _palette.border,
+                                              height: _themeData
+                                                  .supplementaryRowHeight,
+                                              color: _themeData.surfaceMuted,
+                                              borderColor: _themeData.border,
                                             ),
                                           if (widget.summaryValues != null &&
                                               widget.summaryValues!.isNotEmpty)
                                             _PinnedCheckboxSpacerRow(
-                                              height: 48,
-                                              color: _palette.summaryRow,
-                                              borderColor: _palette.border,
+                                              height:
+                                                  _themeData.summaryRowHeight,
+                                              color: _themeData.summaryRow,
+                                              borderColor: _themeData.border,
                                               topBorder: true,
                                             ),
                                         ],
@@ -2155,7 +2151,7 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                                               children: <Widget>[
                                                 _TableHeader<T>(
                                                   columns: columns,
-                                                  palette: _palette,
+                                                  themeData: _themeData,
                                                   height: _headerHeight,
                                                   columnWidths: widget
                                                       .controller
@@ -2201,11 +2197,12 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                                                     values:
                                                         widget.extraTopValues!,
                                                     columns: columns,
-                                                    palette: _palette,
+                                                    themeData: _themeData,
                                                     columnWidths: widget
                                                         .controller
                                                         .columnWidths,
-                                                    height: 44,
+                                                    height: _themeData
+                                                        .supplementaryRowHeight,
                                                   ),
                                                 Expanded(
                                                   child: _buildTableRows(
@@ -2218,11 +2215,12 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                                                     values: widget
                                                         .extraBottomValues!,
                                                     columns: columns,
-                                                    palette: _palette,
+                                                    themeData: _themeData,
                                                     columnWidths: widget
                                                         .controller
                                                         .columnWidths,
-                                                    height: 44,
+                                                    height: _themeData
+                                                        .supplementaryRowHeight,
                                                   ),
                                                 if (widget.summaryValues !=
                                                         null &&
@@ -2233,11 +2231,12 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                                                     values:
                                                         widget.summaryValues!,
                                                     columns: columns,
-                                                    palette: _palette,
+                                                    themeData: _themeData,
                                                     columnWidths: widget
                                                         .controller
                                                         .columnWidths,
-                                                    height: 48,
+                                                    height: _themeData
+                                                        .summaryRowHeight,
                                                   ),
                                               ],
                                             ),
@@ -2253,7 +2252,7 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                         ),
                         if (widget.showFooter)
                           _DataGridFooter(
-                            palette: _palette,
+                            themeData: _themeData,
                             loading: widget.loading,
                             pageStartIndex: _pageStartIndex,
                             pageEndIndex: _pageEndIndex,
@@ -2298,9 +2297,9 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                   ),
                 ),
                 Positioned(
-                  top: 12,
-                  left: 12,
-                  right: 12,
+                  top: _themeData.loadingBarInset,
+                  left: _themeData.loadingBarInset,
+                  right: _themeData.loadingBarInset,
                   child: IgnorePointer(
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 180),
@@ -2309,10 +2308,12 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                       child: TickerMode(
                         enabled: widget.loading,
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: const SizedBox(
+                          borderRadius: BorderRadius.circular(
+                            _themeData.loadingBarRadius,
+                          ),
+                          child: SizedBox(
                             key: Key('table-loading-bar'),
-                            height: 6,
+                            height: _themeData.loadingBarHeight,
                             child: LinearProgressIndicator(),
                           ),
                         ),
@@ -2320,6 +2321,15 @@ class _DataGridState<T> extends State<DataGrid<T>> {
                     ),
                   ),
                 ),
+                if (!widget.showFooter)
+                  Positioned(
+                    left: _themeData.loadingBarInset,
+                    bottom: _themeData.loadingBarInset,
+                    child: _ColumnSettingsFloatingButton(
+                      themeData: _themeData,
+                      onPressed: _openColumnSettings,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -2371,7 +2381,7 @@ class _AnimatedRowsList<T> extends StatelessWidget {
 class _TableHeader<T> extends StatelessWidget {
   const _TableHeader({
     required this.columns,
-    required this.palette,
+    required this.themeData,
     required this.height,
     required this.columnWidths,
     required this.sortSpecs,
@@ -2380,7 +2390,7 @@ class _TableHeader<T> extends StatelessWidget {
   });
 
   final List<DataGridColumn<T>> columns;
-  final _GridPalette palette;
+  final DataGridThemeData themeData;
   final double height;
   final Map<String, double> columnWidths;
   final List<DataGridSortSpec> sortSpecs;
@@ -2392,8 +2402,8 @@ class _TableHeader<T> extends StatelessWidget {
     return Container(
       height: height,
       decoration: BoxDecoration(
-        color: palette.header,
-        border: Border(bottom: BorderSide(color: palette.border)),
+        color: themeData.header,
+        border: Border(bottom: BorderSide(color: themeData.border)),
       ),
       child: Row(
         children: columns.map((DataGridColumn<T> column) {
@@ -2407,7 +2417,7 @@ class _TableHeader<T> extends StatelessWidget {
           return _HeaderCell<T>(
             key: Key('table-header-${column.id}'),
             column: column,
-            palette: palette,
+            themeData: themeData,
             width: width,
             height: height,
             sortDirection: direction,
@@ -2425,7 +2435,7 @@ class _HeaderCell<T> extends StatelessWidget {
   const _HeaderCell({
     super.key,
     required this.column,
-    required this.palette,
+    required this.themeData,
     required this.width,
     required this.height,
     required this.sortDirection,
@@ -2435,7 +2445,7 @@ class _HeaderCell<T> extends StatelessWidget {
   });
 
   final DataGridColumn<T> column;
-  final _GridPalette palette;
+  final DataGridThemeData themeData;
   final double width;
   final double height;
   final DataGridSortDirection? sortDirection;
@@ -2445,82 +2455,93 @@ class _HeaderCell<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool showSortOrder = sortOrder != null && width >= 96;
+    final bool showSortOrder =
+        sortOrder != null && width >= themeData.showSortOrderMinWidth;
     return Stack(
       children: <Widget>[
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: column.sortable ? onSort : null,
-            child: Container(
-              width: width,
-              height: height,
-              alignment: column.alignment,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: sortDirection == null ? null : palette.sortHighlight,
-                border: Border(right: BorderSide(color: palette.border)),
-              ),
-              child:
-                  column.headerBuilder?.call(context, column) ??
-                  Row(
-                    mainAxisAlignment: column.alignment == Alignment.centerRight
-                        ? MainAxisAlignment.end
-                        : MainAxisAlignment.start,
-                    children: <Widget>[
-                      Flexible(
-                        child: Text(
-                          column.label,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(
-                                color: sortDirection == null
-                                    ? palette.headerText
-                                    : palette.accent,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ),
-                      if (showSortOrder) ...<Widget>[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: palette.surface,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: palette.badgeBorder),
-                          ),
+        MouseRegion(
+          cursor: column.sortable
+              ? SystemMouseCursors.click
+              : MouseCursor.defer,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: column.sortable ? onSort : null,
+              child: Container(
+                width: width,
+                height: height,
+                alignment: column.alignment,
+                padding: EdgeInsets.symmetric(
+                  horizontal: themeData.headerCellHorizontalPadding,
+                ),
+                decoration: BoxDecoration(
+                  color: sortDirection == null ? null : themeData.sortHighlight,
+                  border: Border(right: BorderSide(color: themeData.border)),
+                ),
+                child:
+                    column.headerBuilder?.call(context, column) ??
+                    Row(
+                      mainAxisAlignment:
+                          column.alignment == Alignment.centerRight
+                          ? MainAxisAlignment.end
+                          : MainAxisAlignment.start,
+                      children: <Widget>[
+                        Flexible(
                           child: Text(
-                            '$sortOrder',
-                            style: Theme.of(context).textTheme.labelSmall
+                            column.label,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelLarge
                                 ?.copyWith(
-                                  color: palette.accent,
-                                  fontWeight: FontWeight.w800,
+                                  color: sortDirection == null
+                                      ? themeData.headerText
+                                      : themeData.accent,
+                                  fontWeight: FontWeight.w700,
                                 ),
                           ),
                         ),
+                        if (showSortOrder) ...<Widget>[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: themeData.surface,
+                              borderRadius: BorderRadius.circular(
+                                themeData.badgeRadius,
+                              ),
+                              border: Border.all(color: themeData.badgeBorder),
+                            ),
+                            child: Text(
+                              '$sortOrder',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: themeData.accent,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                            ),
+                          ),
+                        ],
+                        if (column.sortable) ...<Widget>[
+                          const SizedBox(width: 4),
+                          Icon(
+                            switch (sortDirection) {
+                              DataGridSortDirection.asc =>
+                                Icons.arrow_upward_rounded,
+                              DataGridSortDirection.desc =>
+                                Icons.arrow_downward_rounded,
+                              null => Icons.unfold_more_rounded,
+                            },
+                            size: 14,
+                            color: sortDirection == null
+                                ? themeData.muted
+                                : themeData.accent,
+                          ),
+                        ],
                       ],
-                      if (column.sortable) ...<Widget>[
-                        const SizedBox(width: 4),
-                        Icon(
-                          switch (sortDirection) {
-                            DataGridSortDirection.asc =>
-                              Icons.arrow_upward_rounded,
-                            DataGridSortDirection.desc =>
-                              Icons.arrow_downward_rounded,
-                            null => Icons.unfold_more_rounded,
-                          },
-                          size: 14,
-                          color: sortDirection == null
-                              ? palette.muted
-                              : palette.accent,
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+              ),
             ),
           ),
         ),
@@ -2535,7 +2556,7 @@ class _HeaderCell<T> extends StatelessWidget {
                 behavior: HitTestBehavior.translucent,
                 onHorizontalDragUpdate: (DragUpdateDetails details) =>
                     onResize(details.delta.dx),
-                child: const SizedBox(width: 12),
+                child: SizedBox(width: themeData.resizeHandleWidth),
               ),
             ),
           ),
@@ -2562,6 +2583,7 @@ class _TableRowWidget<T> extends StatelessWidget {
     required this.editingFocusNode,
     required this.editingErrorText,
     required this.isEditableMode,
+    required this.themeData,
     required this.onTap,
     required this.onCellTap,
     required this.onDisplayClearTap,
@@ -2589,6 +2611,7 @@ class _TableRowWidget<T> extends StatelessWidget {
   final FocusNode? editingFocusNode;
   final String? editingErrorText;
   final bool isEditableMode;
+  final DataGridThemeData themeData;
   final VoidCallback onTap;
   final ValueChanged<int> onCellTap;
   final ValueChanged<int> onDisplayClearTap;
@@ -2624,10 +2647,10 @@ class _TableRowWidget<T> extends StatelessWidget {
                 final TextStyle? editorStyle =
                     column.editorTextStyle?.call(context, row) ??
                     Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF0F172A),
+                      color: themeData.editorText,
                     );
                 final Color cellFill = isEditing || isFocused
-                    ? const Color(0xFFDCEAFE)
+                    ? themeData.sortHighlight
                     : backgroundColor;
                 return Stack(
                   children: <Widget>[
@@ -2636,7 +2659,8 @@ class _TableRowWidget<T> extends StatelessWidget {
                       onPointerDown: (PointerDownEvent event) {
                         final bool tappedClearZone =
                             (isEditing || isEditableCell) &&
-                            event.localPosition.dx >= cellWidth - 28;
+                            event.localPosition.dx >=
+                                cellWidth - themeData.editableTrailingSpace;
                         if (tappedClearZone) {
                           return;
                         }
@@ -2649,12 +2673,16 @@ class _TableRowWidget<T> extends StatelessWidget {
                         height: rowHeight,
                         alignment: column.alignment,
                         padding: EdgeInsets.symmetric(
-                          horizontal: isEditing ? 0 : 10,
+                          horizontal: isEditing
+                              ? 0
+                              : themeData.cellHorizontalPadding,
                         ),
                         decoration: BoxDecoration(
                           color: cellFill,
                           borderRadius: isEditing
-                              ? BorderRadius.circular(4)
+                              ? BorderRadius.circular(
+                                  themeData.editorCellRadius,
+                                )
                               : null,
                           border: Border(
                             right: BorderSide(color: borderColor),
@@ -2681,13 +2709,12 @@ class _TableRowWidget<T> extends StatelessWidget {
                                             controller: editingController,
                                             focusNode: editingFocusNode,
                                             scrollPadding: EdgeInsets.symmetric(
-                                              horizontal: 10,
+                                              horizontal: themeData
+                                                  .cellHorizontalPadding,
                                             ),
-                                            cursorColor: const Color(
-                                              0xFF2563EB,
-                                            ),
-                                            cursorRadius: const Radius.circular(
-                                              2,
+                                            cursorColor: themeData.accent,
+                                            cursorRadius: Radius.circular(
+                                              themeData.editorCursorRadius,
                                             ),
                                             maxLines: 1,
                                             selectAllOnFocus: false,
@@ -2720,7 +2747,7 @@ class _TableRowWidget<T> extends StatelessWidget {
                                                   InputBorder.none,
                                               hintText: column.label,
                                               hintStyle: editorStyle?.copyWith(
-                                                color: const Color(0xFF94A3B8),
+                                                color: themeData.editorHint,
                                                 height: 1,
                                               ),
                                               contentPadding: EdgeInsets.zero,
@@ -2735,7 +2762,9 @@ class _TableRowWidget<T> extends StatelessWidget {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
+                                    SizedBox(
+                                      width: themeData.editorClearSpacing,
+                                    ),
                                     MouseRegion(
                                       cursor: SystemMouseCursors.click,
                                       child: Tooltip(
@@ -2753,18 +2782,19 @@ class _TableRowWidget<T> extends StatelessWidget {
                                           onTap: onEditorClear,
                                           behavior: HitTestBehavior.translucent,
                                           child: SizedBox(
-                                            width: 20,
-                                            height: 20,
+                                            width: themeData.clearButtonSize,
+                                            height: themeData.clearButtonSize,
                                             child: Center(
                                               child: Icon(
                                                 editingErrorText != null
                                                     ? Icons
                                                           .error_outline_rounded
                                                     : Icons.close_rounded,
-                                                size: 18,
+                                                size: themeData
+                                                    .clearButtonIconSize,
                                                 color: editingErrorText != null
-                                                    ? const Color(0xFFDC2626)
-                                                    : const Color(0xFF64748B),
+                                                    ? themeData.error
+                                                    : themeData.muted,
                                               ),
                                             ),
                                           ),
@@ -2779,7 +2809,9 @@ class _TableRowWidget<T> extends StatelessWidget {
                                   Positioned.fill(
                                     child: Padding(
                                       padding: EdgeInsets.only(
-                                        right: isEditableCell ? 28 : 0,
+                                        right: isEditableCell
+                                            ? themeData.editableTrailingSpace
+                                            : 0,
                                       ),
                                       child: Align(
                                         alignment: column.alignment,
@@ -2789,7 +2821,7 @@ class _TableRowWidget<T> extends StatelessWidget {
                                   ),
                                   if (isEditableCell)
                                     Positioned(
-                                      right: 4,
+                                      right: themeData.trailingActionInset,
                                       top: 0,
                                       bottom: 0,
                                       child: Center(
@@ -2804,13 +2836,14 @@ class _TableRowWidget<T> extends StatelessWidget {
                                             },
                                             behavior:
                                                 HitTestBehavior.translucent,
-                                            child: const SizedBox(
-                                              width: 20,
-                                              height: 20,
+                                            child: SizedBox(
+                                              width: themeData.clearButtonSize,
+                                              height: themeData.clearButtonSize,
                                               child: Icon(
                                                 Icons.close_rounded,
-                                                size: 18,
-                                                color: Color(0xFF64748B),
+                                                size: themeData
+                                                    .clearButtonIconSize,
+                                                color: themeData.muted,
                                               ),
                                             ),
                                           ),
@@ -2836,7 +2869,7 @@ class _PinnedCheckboxHeader extends StatelessWidget {
   const _PinnedCheckboxHeader({
     required this.width,
     required this.height,
-    required this.palette,
+    required this.themeData,
     required this.isAllSelected,
     required this.isPartiallySelected,
     required this.onChanged,
@@ -2844,7 +2877,7 @@ class _PinnedCheckboxHeader extends StatelessWidget {
 
   final double width;
   final double height;
-  final _GridPalette palette;
+  final DataGridThemeData themeData;
   final bool isAllSelected;
   final bool isPartiallySelected;
   final ValueChanged<bool?> onChanged;
@@ -2856,20 +2889,22 @@ class _PinnedCheckboxHeader extends StatelessWidget {
       height: height,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: palette.header,
+        color: themeData.header,
         border: Border(
-          right: BorderSide(color: palette.border),
-          bottom: BorderSide(color: palette.border),
+          right: BorderSide(color: themeData.border),
+          bottom: BorderSide(color: themeData.border),
         ),
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(18)),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(themeData.checkboxHeaderRadius),
+        ),
       ),
       child: CupertinoCheckbox(
         key: const Key('table-checkbox-header'),
         value: isAllSelected ? true : (isPartiallySelected ? null : false),
         tristate: true,
         onChanged: onChanged,
-        activeColor: palette.accent,
-        checkColor: Colors.white,
+        activeColor: themeData.accent,
+        checkColor: themeData.checkboxCheckColor,
       ),
     );
   }
@@ -2884,6 +2919,7 @@ class _PinnedCheckboxRow extends StatelessWidget {
     required this.isSelected,
     required this.enabled,
     required this.onChanged,
+    required this.themeData,
   });
 
   final Object rowKey;
@@ -2893,6 +2929,7 @@ class _PinnedCheckboxRow extends StatelessWidget {
   final bool isSelected;
   final bool enabled;
   final ValueChanged<bool?> onChanged;
+  final DataGridThemeData themeData;
 
   @override
   Widget build(BuildContext context) {
@@ -2912,18 +2949,18 @@ class _PinnedCheckboxRow extends StatelessWidget {
             key: Key('table-checkbox-$rowKey'),
             value: isSelected,
             onChanged: enabled ? onChanged : null,
-            activeColor: const Color(0xFF1D4ED8),
-            checkColor: Colors.white,
+            activeColor: themeData.accent,
+            checkColor: themeData.checkboxCheckColor,
           ),
         ),
         if (isSelected)
-          const Positioned(
+          Positioned(
             left: 0,
             top: 0,
             bottom: 0,
             child: ColoredBox(
-              color: Color(0xFF1D4ED8),
-              child: SizedBox(width: 3),
+              color: themeData.selectionIndicator,
+              child: const SizedBox(width: 3),
             ),
           ),
       ],
@@ -2964,14 +3001,14 @@ class _SupplementaryRow<T> extends StatelessWidget {
   const _SupplementaryRow({
     required this.values,
     required this.columns,
-    required this.palette,
+    required this.themeData,
     required this.columnWidths,
     required this.height,
   });
 
   final Map<String, Object?> values;
   final List<DataGridColumn<T>> columns;
-  final _GridPalette palette;
+  final DataGridThemeData themeData;
   final Map<String, double> columnWidths;
   final double height;
 
@@ -2979,18 +3016,20 @@ class _SupplementaryRow<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: height,
-      color: palette.surfaceMuted,
+      color: themeData.surfaceMuted,
       child: Row(
         children: columns.map((DataGridColumn<T> column) {
           final Object? value = values[column.id];
           return Container(
             width: columnWidths[column.id] ?? column.width,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: EdgeInsets.symmetric(
+              horizontal: themeData.cellHorizontalPadding,
+            ),
             alignment: column.alignment,
             decoration: BoxDecoration(
               border: Border(
-                right: BorderSide(color: palette.border),
-                bottom: BorderSide(color: palette.border),
+                right: BorderSide(color: themeData.border),
+                bottom: BorderSide(color: themeData.border),
               ),
             ),
             child:
@@ -2999,7 +3038,7 @@ class _SupplementaryRow<T> extends StatelessWidget {
                   value?.toString() ?? '',
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: palette.muted,
+                    color: themeData.muted,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -3014,14 +3053,14 @@ class _SummaryRow<T> extends StatelessWidget {
   const _SummaryRow({
     required this.values,
     required this.columns,
-    required this.palette,
+    required this.themeData,
     required this.columnWidths,
     required this.height,
   });
 
   final Map<String, Object?> values;
   final List<DataGridColumn<T>> columns;
-  final _GridPalette palette;
+  final DataGridThemeData themeData;
   final Map<String, double> columnWidths;
   final double height;
 
@@ -3029,18 +3068,20 @@ class _SummaryRow<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: height,
-      color: palette.summaryRow,
+      color: themeData.summaryRow,
       child: Row(
         children: columns.map((DataGridColumn<T> column) {
           final Object? value = values[column.id];
           return Container(
             width: columnWidths[column.id] ?? column.width,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: EdgeInsets.symmetric(
+              horizontal: themeData.cellHorizontalPadding,
+            ),
             alignment: column.alignment,
             decoration: BoxDecoration(
               border: Border(
-                right: BorderSide(color: palette.border),
-                top: BorderSide(color: palette.border),
+                right: BorderSide(color: themeData.border),
+                top: BorderSide(color: themeData.border),
               ),
             ),
             child:
@@ -3049,7 +3090,7 @@ class _SummaryRow<T> extends StatelessWidget {
                   value?.toString() ?? '',
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: palette.headerText,
+                    color: themeData.headerText,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -3062,7 +3103,7 @@ class _SummaryRow<T> extends StatelessWidget {
 
 class _DataGridFooter extends StatelessWidget {
   const _DataGridFooter({
-    required this.palette,
+    required this.themeData,
     required this.loading,
     required this.pageStartIndex,
     required this.pageEndIndex,
@@ -3079,7 +3120,7 @@ class _DataGridFooter extends StatelessWidget {
     required this.onPageSizeChanged,
   });
 
-  final _GridPalette palette;
+  final DataGridThemeData themeData;
   final bool loading;
   final int pageStartIndex;
   final int pageEndIndex;
@@ -3097,137 +3138,214 @@ class _DataGridFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        border: Border(top: BorderSide(color: palette.border)),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
-      ),
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 12,
-        runSpacing: 8,
-        children: <Widget>[
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                'Showing $pageStartIndex-$pageEndIndex of $totalRows rows',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: palette.footerText,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (showSelectedCount) ...<Widget>[
-                const SizedBox(width: 12),
-                Text(
-                  'Selected: $selectedCount',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: palette.muted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ],
+    final Widget summary = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Flexible(
+          child: Text(
+            'Showing $pageStartIndex-$pageEndIndex of $totalRows rows',
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: themeData.footerText,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              IconButton(
-                onPressed: onOpenSettings,
-                icon: const Icon(Icons.tune_rounded),
-                tooltip: 'Column settings',
-              ),
-              Text(
-                'Rows',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: palette.muted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 94,
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 6,
-                    ),
-                    border: OutlineInputBorder(),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<int>(
-                      value: pageSize,
-                      isDense: true,
-                      isExpanded: true,
-                      items: pageSizeOptions
-                          .map(
-                            (int size) => DropdownMenuItem<int>(
-                              value: size,
-                              child: Text('$size'),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: onPageSizeChanged,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: palette.surfaceMuted,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$currentPage / $totalPages',
-                  key: const Key('table-page-indicator'),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: palette.headerText,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _PagerButton(
-                buttonKey: const Key('table-page-previous'),
-                onPressed: loading ? null : onPrevious,
-                icon: Icons.chevron_left,
-                palette: palette,
-              ),
-              const SizedBox(width: 4),
-              _PagerButton(
-                buttonKey: const Key('table-page-next'),
-                onPressed: loading ? null : onNext,
-                icon: Icons.chevron_right,
-                filled: true,
-                palette: palette,
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: loading
-                    ? CircularProgressIndicator(
-                        key: const Key('table-page-loading-indicator'),
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          palette.accent,
-                        ),
-                      )
-                    : null,
-              ),
-            ],
+        ),
+        if (showSelectedCount) ...<Widget>[
+          SizedBox(width: themeData.footerSpacing),
+          Text(
+            'Selected: $selectedCount',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: themeData.muted,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
+      ],
+    );
+
+    final Widget pagingControls = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          IconButton(
+            onPressed: onOpenSettings,
+            key: const Key('table-column-settings'),
+            icon: const Icon(Icons.tune_rounded),
+            tooltip: 'Column settings',
+          ),
+          Text(
+            'Rows',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: themeData.muted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Transform.translate(
+            offset: const Offset(0, -2),
+            child: SizedBox(
+              width: themeData.pageSizeDropdownWidth,
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: themeData.pageSizeFieldHorizontalPadding,
+                    vertical: themeData.pageSizeFieldVerticalPadding,
+                  ),
+                  border: const OutlineInputBorder(),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: pageSize,
+                    isDense: true,
+                    isExpanded: true,
+                    items: pageSizeOptions
+                        .map(
+                          (int size) => DropdownMenuItem<int>(
+                            value: size,
+                            child: Text('$size'),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: onPageSizeChanged,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: themeData.footerSpacing),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: themeData.cellHorizontalPadding,
+              vertical: themeData.pageSizeFieldVerticalPadding + 2,
+            ),
+            decoration: BoxDecoration(
+              color: themeData.surfaceMuted,
+              borderRadius: BorderRadius.circular(
+                themeData.pageIndicatorRadius,
+              ),
+            ),
+            child: Text(
+              '$currentPage / $totalPages',
+              key: const Key('table-page-indicator'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: themeData.headerText,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _PagerButton(
+            buttonKey: const Key('table-page-previous'),
+            onPressed: loading ? null : onPrevious,
+            icon: Icons.chevron_left,
+            themeData: themeData,
+          ),
+          const SizedBox(width: 4),
+          _PagerButton(
+            buttonKey: const Key('table-page-next'),
+            onPressed: loading ? null : onNext,
+            icon: Icons.chevron_right,
+            filled: true,
+            themeData: themeData,
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            height: themeData.pageLoadingIndicatorSize,
+            width: themeData.pageLoadingIndicatorSize,
+            child: loading
+                ? CircularProgressIndicator(
+                    key: const Key('table-page-loading-indicator'),
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(themeData.accent),
+                  )
+                : null,
+          ),
+        ],
+      ),
+    );
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: themeData.footerHorizontalPadding,
+        vertical: themeData.footerVerticalPadding,
+      ),
+      decoration: BoxDecoration(
+        color: themeData.surface,
+        border: Border(top: BorderSide(color: themeData.border)),
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(themeData.footerRadius),
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool stackFooter = constraints.maxWidth < 900;
+          if (stackFooter) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                summary,
+                SizedBox(height: themeData.footerRunSpacing),
+                Align(alignment: Alignment.centerLeft, child: pagingControls),
+              ],
+            );
+          }
+
+          return Row(
+            children: <Widget>[
+              Expanded(child: summary),
+              SizedBox(width: themeData.footerSpacing),
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: pagingControls,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ColumnSettingsFloatingButton extends StatelessWidget {
+  const _ColumnSettingsFloatingButton({
+    required this.themeData,
+    required this.onPressed,
+  });
+
+  final DataGridThemeData themeData;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: themeData.surface.withValues(alpha: 0.96),
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(themeData.pagerButtonRadius + 4),
+      child: IconButton(
+        key: const Key('table-column-settings'),
+        onPressed: onPressed,
+        icon: const Icon(Icons.tune_rounded),
+        tooltip: 'Column settings',
+        style: IconButton.styleFrom(
+          minimumSize: Size(
+            themeData.pagerButtonSize + 6,
+            themeData.pagerButtonSize + 6,
+          ),
+          backgroundColor: themeData.surface.withValues(alpha: 0.92),
+          foregroundColor: themeData.footerText,
+          side: BorderSide(color: themeData.border),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(
+              themeData.pagerButtonRadius + 4,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -3238,92 +3356,39 @@ class _PagerButton extends StatelessWidget {
     this.buttonKey,
     required this.onPressed,
     required this.icon,
-    required this.palette,
+    required this.themeData,
     this.filled = false,
   });
 
   final Key? buttonKey;
   final VoidCallback? onPressed;
   final IconData icon;
-  final _GridPalette palette;
+  final DataGridThemeData themeData;
   final bool filled;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       key: buttonKey,
-      width: 30,
-      height: 30,
+      width: themeData.pagerButtonSize,
+      height: themeData.pagerButtonSize,
       child: IconButton(
         onPressed: onPressed,
         padding: EdgeInsets.zero,
         style: IconButton.styleFrom(
-          backgroundColor: filled ? palette.accent : palette.surface,
-          foregroundColor: filled ? Colors.white : palette.footerText,
-          disabledBackgroundColor: palette.surfaceMuted,
-          disabledForegroundColor: palette.muted,
-          side: filled ? null : BorderSide(color: palette.border),
+          backgroundColor: filled ? themeData.accent : themeData.surface,
+          foregroundColor: filled
+              ? themeData.filledControlForeground
+              : themeData.footerText,
+          disabledBackgroundColor: themeData.surfaceMuted,
+          disabledForegroundColor: themeData.muted,
+          side: filled ? null : BorderSide(color: themeData.border),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(themeData.pagerButtonRadius),
           ),
         ),
-        icon: Icon(icon, size: 16),
+        icon: Icon(icon, size: themeData.pagerIconSize),
       ),
     );
   }
-}
-
-class _GridPalette {
-  const _GridPalette.light()
-    : surface = const Color(0xFFFFFFFF),
-      surfaceMuted = const Color(0xFFF8FAFC),
-      header = const Color(0xFFF8FAFC),
-      row = const Color(0xFFFFFFFF),
-      rowAlt = const Color(0xFFFCFDFE),
-      selectedRow = const Color(0xFFEFF5FF),
-      hoverRow = const Color(0xFFF8FBFF),
-      summaryRow = const Color(0xFFF4F7FB),
-      border = const Color(0xFFD7DFEA),
-      headerText = const Color(0xFF475569),
-      footerText = const Color(0xFF475569),
-      muted = const Color(0xFF94A3B8),
-      accent = const Color(0xFF1D4ED8),
-      badgeBorder = const Color(0xFFBFDBFE),
-      sortHighlight = const Color(0xFFEFF6FF),
-      overlay = const Color(0xAAFFFFFF);
-
-  const _GridPalette.dark()
-    : surface = const Color(0xFF0F172A),
-      surfaceMuted = const Color(0xFF111C31),
-      header = const Color(0xFF111C31),
-      row = const Color(0xFF0F172A),
-      rowAlt = const Color(0xFF122035),
-      selectedRow = const Color(0xFF1D3557),
-      hoverRow = const Color(0xFF16243C),
-      summaryRow = const Color(0xFF14243C),
-      border = const Color(0xFF2A3B55),
-      headerText = const Color(0xFFE2E8F0),
-      footerText = const Color(0xFFCBD5E1),
-      muted = const Color(0xFF94A3B8),
-      accent = const Color(0xFF60A5FA),
-      badgeBorder = const Color(0xFF315E91),
-      sortHighlight = const Color(0xFF19304D),
-      overlay = const Color(0xAA0F172A);
-
-  final Color surface;
-  final Color surfaceMuted;
-  final Color header;
-  final Color row;
-  final Color rowAlt;
-  final Color selectedRow;
-  final Color hoverRow;
-  final Color summaryRow;
-  final Color border;
-  final Color headerText;
-  final Color footerText;
-  final Color muted;
-  final Color accent;
-  final Color badgeBorder;
-  final Color sortHighlight;
-  final Color overlay;
 }

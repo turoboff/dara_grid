@@ -157,7 +157,15 @@ class DataGridController<T> extends ChangeNotifier {
     };
 
     if (!multiSort) {
-      current.clear();
+      _options = _options.copyWith(
+        sortSpecs: next == null
+            ? const <DataGridSortSpec>[]
+            : <DataGridSortSpec>[
+                DataGridSortSpec(columnId: columnId, direction: next),
+              ],
+      );
+      notifyListeners();
+      return;
     }
     if (next == null) {
       current.removeWhere((DataGridSortSpec spec) => spec.columnId == columnId);

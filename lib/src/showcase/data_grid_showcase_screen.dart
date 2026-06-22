@@ -66,199 +66,203 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
 
   String get _activeSearchQuery => _searchQuery.trim();
 
-  List<DataGridColumn<CustomerRecord>> get _columns =>
-      <DataGridColumn<CustomerRecord>>[
-        DataGridColumn<CustomerRecord>(
-          id: 'id',
-          label: 'ID',
-          width: 84,
-          hideable: false,
-          sortValue: (CustomerRecord record) => record.id,
-          cellBuilder: (BuildContext context, CustomerRecord record) => Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '#${record.id}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
-            ),
+  List<DataGridColumn<CustomerRecord>>
+  get _columns => <DataGridColumn<CustomerRecord>>[
+    DataGridColumn<CustomerRecord>(
+      id: 'id',
+      label: 'ID',
+      width: 84,
+      hideable: false,
+      sortValue: (CustomerRecord record) => record.id,
+      cellBuilder: (BuildContext context, CustomerRecord record) => Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          '#${record.id}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
+        ),
+      ),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'customer',
+      label: 'Customer',
+      width: 172,
+      hideable: false,
+      sortValue: (CustomerRecord record) => record.customer,
+      editorText: (CustomerRecord record) => record.customer,
+      editorTextStyle: (BuildContext context, CustomerRecord record) =>
+          Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: const Color(0xFF0F172A),
+            fontWeight: FontWeight.w700,
           ),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'customer',
-          label: 'Customer',
-          width: 172,
-          hideable: false,
-          sortValue: (CustomerRecord record) => record.customer,
-          editorText: (CustomerRecord record) => record.customer,
-          editorTextStyle: (BuildContext context, CustomerRecord record) =>
-              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF0F172A),
-                fontWeight: FontWeight.w700,
-              ),
-          editable: (_) => true,
-          required: true,
-          requiredMessage: 'Customer is required',
-          cellBuilder: (_, CustomerRecord record) => _PrimaryCell(
-            title: record.customer,
-            subtitle: record.company,
-            highlightQuery: _activeSearchQuery,
+      editable: (_) => true,
+      required: true,
+      requiredMessage: 'Customer is required',
+      cellBuilder: (_, CustomerRecord record) => _PrimaryCell(
+        title: record.customer,
+        subtitle: record.company,
+        highlightQuery: _activeSearchQuery,
+      ),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'company',
+      label: 'Company',
+      width: 188,
+      sortValue: (CustomerRecord record) => record.company,
+      editorText: (CustomerRecord record) => record.company,
+      editorTextStyle: (BuildContext context, CustomerRecord record) =>
+          Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
+      editable: (_) => true,
+      required: true,
+      cellBuilder: (_, CustomerRecord record) =>
+          _PlainTextCell(record.company, highlightQuery: _activeSearchQuery),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'email',
+      label: 'Email',
+      width: 226,
+      sortValue: (CustomerRecord record) => record.email,
+      editorText: (CustomerRecord record) => record.email,
+      editorTextStyle: (BuildContext context, CustomerRecord record) =>
+          Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
+      editable: (_) => true,
+      required: true,
+      cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
+        record.email,
+        muted: true,
+        highlightQuery: _activeSearchQuery,
+      ),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'phone',
+      label: 'Phone',
+      width: 146,
+      sortValue: (CustomerRecord record) => record.phone,
+      cellBuilder: (_, CustomerRecord record) =>
+          _PlainTextCell(record.phone, highlightQuery: _activeSearchQuery),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'region',
+      label: 'Region',
+      width: 132,
+      sortValue: (CustomerRecord record) => record.region,
+      cellBuilder: (_, CustomerRecord record) =>
+          _PlainTextCell(record.region, highlightQuery: _activeSearchQuery),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'balance',
+      label: 'Balance',
+      width: 132,
+      alignment: Alignment.centerRight,
+      sortValue: (CustomerRecord record) => record.balance,
+      editorText: (CustomerRecord record) => record.balance.toStringAsFixed(2),
+      editorTextStyle: (BuildContext context, CustomerRecord record) =>
+          Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: const Color(0xFF0F172A),
+            fontWeight: FontWeight.w700,
           ),
+      editable: (_) => true,
+      required: true,
+      editType: DataGridEditType.number,
+      cellBuilder: (_, CustomerRecord record) => _MetricCell(
+        _formatCurrency(record.balance),
+        align: TextAlign.right,
+        emphasis: true,
+        highlightQuery: _activeSearchQuery,
+      ),
+      summaryBuilder: (BuildContext context, Object? value) => _MetricCell(
+        value?.toString() ?? '',
+        align: TextAlign.right,
+        emphasis: true,
+      ),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'lastOrder',
+      label: 'Last Order',
+      width: 124,
+      sortValue: (CustomerRecord record) => record.lastOrder,
+      cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
+        _formatDate(record.lastOrder),
+        highlightQuery: _activeSearchQuery,
+      ),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'progress',
+      label: 'Progress',
+      width: 184,
+      sortValue: (CustomerRecord record) => record.progress,
+      cellBuilder: (_, CustomerRecord record) =>
+          _ProgressCell(record.progress, highlightQuery: _activeSearchQuery),
+      summaryBuilder: (BuildContext context, Object? value) => Text(
+        value?.toString() ?? '',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: const Color(0xFF0F172A),
+          fontWeight: FontWeight.w700,
         ),
-        DataGridColumn<CustomerRecord>(
-          id: 'company',
-          label: 'Company',
-          width: 188,
-          sortValue: (CustomerRecord record) => record.company,
-          editorText: (CustomerRecord record) => record.company,
-          editorTextStyle: (BuildContext context, CustomerRecord record) =>
-              Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
-          editable: (_) => true,
-          required: true,
-          cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
-            record.company,
-            highlightQuery: _activeSearchQuery,
-          ),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'email',
-          label: 'Email',
-          width: 226,
-          sortValue: (CustomerRecord record) => record.email,
-          editorText: (CustomerRecord record) => record.email,
-          editorTextStyle: (BuildContext context, CustomerRecord record) =>
-              Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF64748B)),
-          editable: (_) => true,
-          required: true,
-          cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
-            record.email,
-            muted: true,
-            highlightQuery: _activeSearchQuery,
-          ),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'phone',
-          label: 'Phone',
-          width: 146,
-          sortValue: (CustomerRecord record) => record.phone,
-          cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(record.phone, highlightQuery: _activeSearchQuery),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'region',
-          label: 'Region',
-          width: 132,
-          sortValue: (CustomerRecord record) => record.region,
-          cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(record.region, highlightQuery: _activeSearchQuery),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'balance',
-          label: 'Balance',
-          width: 132,
-          alignment: Alignment.centerRight,
-          sortValue: (CustomerRecord record) => record.balance,
-          editorText: (CustomerRecord record) =>
-              record.balance.toStringAsFixed(2),
-          editorTextStyle: (BuildContext context, CustomerRecord record) =>
-              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF0F172A),
-                fontWeight: FontWeight.w700,
-              ),
-          editable: (_) => true,
-          required: true,
-          editType: DataGridEditType.number,
-          cellBuilder: (_, CustomerRecord record) => _MetricCell(
-            _formatCurrency(record.balance),
-            align: TextAlign.right,
-            emphasis: true,
-          ),
-          summaryBuilder: (BuildContext context, Object? value) => _MetricCell(
-            value?.toString() ?? '',
-            align: TextAlign.right,
-            emphasis: true,
-          ),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'lastOrder',
-          label: 'Last Order',
-          width: 124,
-          sortValue: (CustomerRecord record) => record.lastOrder,
-          cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(_formatDate(record.lastOrder)),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'progress',
-          label: 'Progress',
-          width: 184,
-          sortValue: (CustomerRecord record) => record.progress,
-          cellBuilder: (_, CustomerRecord record) =>
-              _ProgressCell(record.progress),
-          summaryBuilder: (BuildContext context, Object? value) => Text(
-            value?.toString() ?? '',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: const Color(0xFF0F172A),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'owner',
-          label: 'Owner',
-          width: 132,
-          sortValue: (CustomerRecord record) => record.owner,
-          editorText: (CustomerRecord record) => record.owner,
-          editorTextStyle: (BuildContext context, CustomerRecord record) =>
-              Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
-          editable: (_) => true,
-          required: true,
-          cellBuilder: (_, CustomerRecord record) =>
-              _OwnerCell(record.owner, highlightQuery: _activeSearchQuery),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'createdAt',
-          label: 'Created At',
-          width: 126,
-          sortValue: (CustomerRecord record) => record.createdAt,
-          cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(_formatDate(record.createdAt)),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'updatedAt',
-          label: 'Updated At',
-          width: 126,
-          sortValue: (CustomerRecord record) => record.updatedAt,
-          cellBuilder: (_, CustomerRecord record) =>
-              _PlainTextCell(_formatDate(record.updatedAt)),
-        ),
-        DataGridColumn<CustomerRecord>(
-          id: 'notes',
-          label: 'Notes',
-          width: 260,
-          wrapLines: 3,
-          sortValue: (CustomerRecord record) => record.notes,
-          editorText: (CustomerRecord record) => record.notes,
-          editorTextStyle: (BuildContext context, CustomerRecord record) =>
-              Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
-          editable: (_) => true,
-          saveTrigger: DataGridSaveTrigger.both,
-          cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
-            record.notes,
-            maxLines: 2,
-            highlightQuery: _activeSearchQuery,
-          ),
-        ),
-      ];
+      ),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'owner',
+      label: 'Owner',
+      width: 132,
+      sortValue: (CustomerRecord record) => record.owner,
+      editorText: (CustomerRecord record) => record.owner,
+      editorTextStyle: (BuildContext context, CustomerRecord record) =>
+          Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
+      editable: (_) => true,
+      required: true,
+      cellBuilder: (_, CustomerRecord record) =>
+          _OwnerCell(record.owner, highlightQuery: _activeSearchQuery),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'createdAt',
+      label: 'Created At',
+      width: 126,
+      sortValue: (CustomerRecord record) => record.createdAt,
+      cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
+        _formatDate(record.createdAt),
+        highlightQuery: _activeSearchQuery,
+      ),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'updatedAt',
+      label: 'Updated At',
+      width: 126,
+      sortValue: (CustomerRecord record) => record.updatedAt,
+      cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
+        _formatDate(record.updatedAt),
+        highlightQuery: _activeSearchQuery,
+      ),
+    ),
+    DataGridColumn<CustomerRecord>(
+      id: 'notes',
+      label: 'Notes',
+      width: 260,
+      wrapLines: 3,
+      sortValue: (CustomerRecord record) => record.notes,
+      editorText: (CustomerRecord record) => record.notes,
+      editorTextStyle: (BuildContext context, CustomerRecord record) =>
+          Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF0F172A)),
+      editable: (_) => true,
+      saveTrigger: DataGridSaveTrigger.both,
+      cellBuilder: (_, CustomerRecord record) => _PlainTextCell(
+        record.notes,
+        maxLines: 2,
+        highlightQuery: _activeSearchQuery,
+      ),
+    ),
+  ];
 
   @override
   void initState() {
@@ -1994,11 +1998,13 @@ class _MetricCell extends StatelessWidget {
     this.value, {
     this.emphasis = false,
     this.align = TextAlign.left,
+    this.highlightQuery,
   });
 
   final String value;
   final bool emphasis;
   final TextAlign align;
+  final String? highlightQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -2011,6 +2017,7 @@ class _MetricCell extends StatelessWidget {
       textAlign: align,
       maxLines: 1,
       style: style,
+      highlightQuery: highlightQuery,
     );
   }
 }
@@ -2061,16 +2068,18 @@ class _SelectableCellText extends StatelessWidget {
 }
 
 class _ProgressCell extends StatelessWidget {
-  const _ProgressCell(this.progress);
+  const _ProgressCell(this.progress, {this.highlightQuery});
 
   final int progress;
+  final String? highlightQuery;
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Text(
+      child: _SelectableCellText(
         '$progress%',
+        highlightQuery: highlightQuery,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
           color: const Color(0xFF475569),
           fontWeight: FontWeight.w700,
@@ -2118,37 +2127,63 @@ List<InlineSpan> _buildHighlightedTextSpans({
   required String? query,
   required TextStyle highlightStyle,
 }) {
-  final String trimmedQuery = query?.trim() ?? '';
-  if (trimmedQuery.isEmpty || text.isEmpty) {
+  final String normalizedQuery = _normalizeSearchText(query ?? '');
+  if (normalizedQuery.isEmpty || text.isEmpty) {
     return <InlineSpan>[TextSpan(text: text, style: baseStyle)];
   }
 
-  final String lowerText = text.toLowerCase();
-  final String lowerQuery = trimmedQuery.toLowerCase();
-  final List<InlineSpan> spans = <InlineSpan>[];
-  int start = 0;
+  final StringBuffer normalizedTextBuffer = StringBuffer();
+  final List<int> normalizedIndexToTextIndex = <int>[];
+  for (int index = 0; index < text.length; index += 1) {
+    final String character = text[index];
+    if (character.trim().isEmpty) {
+      continue;
+    }
+    normalizedTextBuffer.write(character.toLowerCase());
+    normalizedIndexToTextIndex.add(index);
+  }
 
-  while (start < text.length) {
-    final int matchIndex = lowerText.indexOf(lowerQuery, start);
+  final String normalizedText = normalizedTextBuffer.toString();
+  if (normalizedText.isEmpty) {
+    return <InlineSpan>[TextSpan(text: text, style: baseStyle)];
+  }
+
+  final List<InlineSpan> spans = <InlineSpan>[];
+  int searchStart = 0;
+  int textStart = 0;
+
+  while (searchStart < normalizedText.length) {
+    final int matchIndex = normalizedText.indexOf(normalizedQuery, searchStart);
     if (matchIndex == -1) {
-      spans.add(TextSpan(text: text.substring(start), style: baseStyle));
+      spans.add(TextSpan(text: text.substring(textStart), style: baseStyle));
       break;
     }
 
-    if (matchIndex > start) {
+    final int highlightStart = normalizedIndexToTextIndex[matchIndex];
+    final int highlightEnd =
+        normalizedIndexToTextIndex[matchIndex + normalizedQuery.length - 1] + 1;
+
+    if (highlightStart > textStart) {
       spans.add(
-        TextSpan(text: text.substring(start, matchIndex), style: baseStyle),
+        TextSpan(
+          text: text.substring(textStart, highlightStart),
+          style: baseStyle,
+        ),
       );
     }
 
-    final int matchEnd = matchIndex + trimmedQuery.length;
     spans.add(
       TextSpan(
-        text: text.substring(matchIndex, matchEnd),
+        text: text.substring(highlightStart, highlightEnd),
         style: highlightStyle,
       ),
     );
-    start = matchEnd;
+    textStart = highlightEnd;
+    searchStart = matchIndex + normalizedQuery.length;
+  }
+
+  if (spans.isEmpty) {
+    return <InlineSpan>[TextSpan(text: text, style: baseStyle)];
   }
 
   return spans;

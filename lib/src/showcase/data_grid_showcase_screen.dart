@@ -11,11 +11,13 @@ class DataGridShowcaseScreen extends StatefulWidget {
     this.onBack,
     this.onOpenPosDemo,
     this.initialDensity = DataGridDensity.compact,
+    this.initialThemeMode = DataGridThemeMode.light,
   });
 
   final VoidCallback? onBack;
   final VoidCallback? onOpenPosDemo;
   final DataGridDensity initialDensity;
+  final DataGridThemeMode initialThemeMode;
 
   @override
   State<DataGridShowcaseScreen> createState() => _DataGridShowcaseScreenState();
@@ -59,7 +61,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
   int _checkboxSelectionMin = 0;
   int _checkboxSelectionMax = 0;
   String _searchQuery = '';
-  DataGridThemeMode _themeMode = DataGridThemeMode.light;
+  late DataGridThemeMode _themeMode;
   late DataGridDensity _density;
   Timer? _pageTransitionLoadingTimer;
   int _lastObservedPage = 1;
@@ -268,6 +270,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
   void initState() {
     super.initState();
     _density = widget.initialDensity;
+    _themeMode = widget.initialThemeMode;
     _gridController.addListener(_refresh);
     _lastObservedPage = _gridController.options.page;
   }
@@ -445,16 +448,43 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
     return true;
   }
 
-  Color _baseRowColor(int index, CustomerRecord record) {
+  Color _baseRowColor(BuildContext context, int index, CustomerRecord record) {
+    final DataGridThemeData theme = DataGridTheme.of(
+      context,
+      themeMode: _themeMode,
+    );
+    final Color base = index.isEven ? theme.row : theme.rowAlt;
+
+    Color tinted(
+      Color tint, {
+      required double darkAlpha,
+      required double lightAlpha,
+    }) {
+      return Color.alphaBlend(
+        tint.withValues(
+          alpha: theme.brightness == Brightness.dark ? darkAlpha : lightAlpha,
+        ),
+        base,
+      );
+    }
+
     switch (record.visualState) {
       case RowVisualState.warning:
-        return const Color(0xFFFFFBF2);
+        return tinted(
+          const Color(0xFFF59E0B),
+          darkAlpha: 0.16,
+          lightAlpha: 0.08,
+        );
       case RowVisualState.success:
-        return const Color(0xFFF5FCF7);
+        return tinted(
+          const Color(0xFF22C55E),
+          darkAlpha: 0.14,
+          lightAlpha: 0.06,
+        );
       case RowVisualState.inactive:
-        return const Color(0xFFF8FAFC);
+        return tinted(theme.headerText, darkAlpha: 0.12, lightAlpha: 0.04);
       case RowVisualState.normal:
-        return index.isEven ? Colors.white : const Color(0xFFFCFDFE);
+        return base;
     }
   }
 
@@ -601,7 +631,7 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
       _checkboxSelectionMin = 0;
       _checkboxSelectionMax = 0;
       _searchQuery = '';
-      _themeMode = DataGridThemeMode.light;
+      _themeMode = widget.initialThemeMode;
       _density = widget.initialDensity;
       _rows = List<CustomerRecord>.generate(_rowCount, CustomerRecord.sample);
     });
@@ -855,7 +885,11 @@ class _DataGridShowcaseScreenState extends State<DataGridShowcaseScreen> {
                                               int rowIndex,
                                               bool isSelected,
                                               bool isHovered,
-                                            ) => _baseRowColor(rowIndex, row)
+                                            ) => _baseRowColor(
+                                              context,
+                                              rowIndex,
+                                              row,
+                                            )
                                           : null,
                                       onOptionsChanged:
                                           _handleGridOptionsChanged,

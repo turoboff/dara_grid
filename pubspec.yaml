@@ -1,6 +1,6 @@
 name: data_grid
 description: A reusable Flutter data grid with sorting, pagination, selection, persistence, and inline editing.
-version: 0.1.2
+version: 0.1.3
 publish_to: none
 
 environment:

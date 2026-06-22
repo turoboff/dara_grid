@@ -1,8 +1,48 @@
+import 'package:data_grid/data_grid.dart';
 import 'package:data_grid/src/showcase/data_grid_showcase_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('keeps custom row styling theme-aware in dark mode', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF0A84FF),
+            brightness: Brightness.light,
+          ),
+          useMaterial3: true,
+        ),
+        home: const DataGridShowcaseScreen(
+          initialThemeMode: DataGridThemeMode.dark,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Container firstRowCell = tester.widget<Container>(
+      find.byKey(const Key('table-cell-1-id')),
+    );
+    final Container thirdRowCell = tester.widget<Container>(
+      find.byKey(const Key('table-cell-3-id')),
+    );
+    final BoxDecoration firstDecoration =
+        firstRowCell.decoration! as BoxDecoration;
+    final BoxDecoration thirdDecoration =
+        thirdRowCell.decoration! as BoxDecoration;
+
+    expect(firstDecoration.color, isNot(Colors.white));
+    expect(firstDecoration.color, isNot(const Color(0xFFF5FCF7)));
+    expect(firstDecoration.color, isNot(thirdDecoration.color));
+  });
+
   testWidgets(
     'highlights matched text when the search query omits whitespace',
     (WidgetTester tester) async {
